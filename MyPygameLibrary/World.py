@@ -1,5 +1,4 @@
 """Ce programme python contient des fonctions pour interagir avec le monde vu par la caméra."""
-from numpy import array
 from pygame import SRCALPHA, Surface, Vector2 as Vec2, Color, Rect, draw, transform
 from MyPygameLibrary.Camera import Camera
 
@@ -28,19 +27,6 @@ def draw_arrow(surface: Surface, color: Color, point1: Vec2, point2: Vec2, width
 				])
 			poly = [point1 + Vec2(p).rotate(-delta.angle_to((0, 1))) for p in poly]
 			draw.polygon(surface, color, poly, width)
-
-
-bezier_matrix = array([[1, 0, 0, 0], [-3, 3, 0, 0], [3, -6, 3, 0], [-1, 3, -3, 1]])
-
-
-def bezier_curve(point1: Vec2, angle1: int, point2: Vec2, angle2: int):
-	"""Retourne une fonction de position en fonction du "temps" (0 - 1)
-	décrivant une courbe allant du point 1 au 2 et tangente aux angles 1 et 2"""
-	length = (point2 - point1).length() / 2
-	points = array([point1, point1 + Vec2(length, 0).rotate(angle1),
-	                   point2 + Vec2(length, 0).rotate(angle2), point2])
-	return lambda t: Vec2(tuple(array([1, t, t ** 2, t ** 3]) @ bezier_matrix @ points))
-
 
 
 def draw_image(surface: Surface, camera: Camera, image: Surface, position: Vec2, size: float = 1):

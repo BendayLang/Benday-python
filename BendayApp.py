@@ -1,12 +1,13 @@
 from pygame import Vector2 as Vec2, draw
 
 from AST import ASTNode, ASTNodeType
+from Constantes import FONT_20
 from Containers import HoveredOn
 
 from MyPygameLibrary.App import App
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.Inputs import Key
-from MyPygameLibrary.UI_elements import TextBox, draw_text
+from MyPygameLibrary.UI_elements import Button, TextBox, draw_text
 
 from Blocs.ParentBloc import ParentBloc
 from Blocs.IfElseBloc import IfElseBloc
@@ -15,6 +16,7 @@ from Blocs.SequenceBloc import SequenceBloc
 from Blocs.WhileBloc import WhileBloc
 from Blocs.VariableReturnBloc import VariableReturnBloc
 from Blocs.PrintBloc import PrintBloc
+from executor import exec_ast
 
 BLOCS = [VariableAssignmentBloc,
          IfElseBloc,
@@ -25,12 +27,22 @@ BLOCS = [VariableAssignmentBloc,
 
 BLOC_CHOICE_SIZE: Vec2 = Vec2(150, 30)
 
+INFO_TIME: int = 800
+MARGIN: Vec2 = Vec2(5)
+
 
 class BendayApp(App):
+	"""Classe principale de l’application Benday.
+	Logiciel de programmation visuel et dynamique."""
+	
 	def __init__(self):
 		super().__init__("Dynamic UI", "grey 40", fps=120, quit_on_escape=False)
 		
 		self.ui_objects["bt_reset"].text = "CLEAR"
+		
+		self.ui_objects["bt_play"] = Button(
+		  Vec2(300, 50), Vec2(100, 40), "cyan", text="PLAY"
+		)
 		
 		self.camera = Camera(self.window_size, zoom_speed=2 ** (1 / 8), vertical_scroll=True,
 		                     min_scale=1 / 2, max_scale=2,
@@ -45,6 +57,9 @@ class BendayApp(App):
 		
 		self.text_box: TextBox | None = None
 		self.text_box_bloc: int | None = None
+		
+		self.info_timer: int = 0
+		
 		self.AST = self.generateAST()
 	
 	def reset(self):
@@ -57,6 +72,7 @@ class BendayApp(App):
 		self.bloc_hovered = None
 		self.mouse_hovered = None
 		
+		self.info_timer = 0
 		self.changed = True
 	
 	def update(self, delta):
@@ -82,6 +98,9 @@ class BendayApp(App):
 			self.AST = self.generateAST()
 			self.changed = True
 		
+		if self.ui_objects["bt_play"].state == Key.CLICKED:
+			exec_ast(self.AST)
+		
 		if self.selected_bloc is None:
 			self.camera.update(self.input)
 			if self.camera.changed: self.changed = True
@@ -104,6 +123,12 @@ class BendayApp(App):
 				self.changed = True
 			if self.text_box.size_changed and self.text_box_bloc is not None:
 				self.blocs[self.text_box_bloc][1].update_size()
+		
+		if self.mouse_hovered is not None:
+			if self.mouse_hovered[2] == (HoveredOn.INFO, None):
+				if self.info_timer <= INFO_TIME <= self.info_timer + delta:
+					self.changed = True
+				self.info_timer += delta
 		
 		if not ((self.input.mouse.delta and
 		         not (self.text_box is not None and self.text_box_bloc is None))
@@ -169,10 +194,8 @@ class BendayApp(App):
 				self.text_box_bloc = None
 			
 			case HoveredOn.INFO:
-				hovered_bloc = bloc.get_bloc(hierarchy)
-				print()
-				print(hovered_bloc.__class__.__name__, ":")
-				print(hovered_bloc.__doc__)
+				self.info_timer = INFO_TIME
+				self.changed = True
 			
 			case HoveredOn.CROSS:
 				container = bloc.get_container(hierarchy)
@@ -212,11 +235,10 @@ class BendayApp(App):
 			value = int(self.text_box.text)
 		except ValueError:
 			return
+		if 0 >= value or value > len(BLOCS):
+			return
 		
-		if 0 < value <= len(BLOCS):
-			bloc_type = BLOCS[value - 1]
-		else:
-			bloc_type = BLOCS[0]
+		bloc_type = BLOCS[value - 1]
 		new_bloc = bloc_type()
 		position = self.camera.screen2world(self.text_box.position + self.text_box.size / 2)
 		
@@ -230,7 +252,7 @@ class BendayApp(App):
 				case HoveredOn.SEQUENCE:
 					sequence = bloc.sequences[hovered_on[1]]
 					sequence_bloc_id = sequence.hovered_gap(
-						position - bloc.sequence_position(hovered_on[1]))
+					  position - bloc.sequence_position(hovered_on[1]))
 					sequence.set_hovered(sequence_bloc_id, Vec2(0, 0))
 					sequence.set_bloc(sequence_bloc_id, new_bloc)
 					self.blocs[bloc_id][1].update_size()
@@ -272,7 +294,6 @@ class BendayApp(App):
 		
 		if new_mouse_hovered == (0, [], (HoveredOn.SELF, None)):
 			new_mouse_hovered = None
-		# if new_mouse_hovered == (0, [], (HoveredOn.SEQUENCE, 0)): return
 		
 		if self.mouse_hovered is not None:
 			bloc_id, hierarchy, _ = self.mouse_hovered
@@ -283,6 +304,8 @@ class BendayApp(App):
 			bloc_id, hierarchy, hovered_on = new_mouse_hovered
 			bloc = self.blocs[bloc_id][1].get_bloc(hierarchy)
 			bloc.hovered_on = hovered_on
+			if self.mouse_hovered is not None:
+				self.info_timer = 0
 		
 		self.mouse_hovered = new_mouse_hovered
 		self.changed = True
@@ -350,6 +373,24 @@ class BendayApp(App):
 		for position, bloc in self.blocs:
 			bloc.draw(self.window_surface, self.camera, position)
 		
+		if self.mouse_hovered is not None and self.info_timer >= INFO_TIME:
+			bloc_id, hierarchy, _ = self.mouse_hovered
+			bloc_position, bloc = self.blocs[bloc_id]
+			hovered_bloc = bloc.get_bloc(hierarchy)
+			title = f"{hovered_bloc.__class__.__name__}".upper()
+			text = f"{title}\n{hovered_bloc.__doc__}".replace("\t", "").split("\n")
+			
+			size = Vec2(max([FONT_20.size(line)[0] for line in text]), len(text) * FONT_20.get_height())
+			position = self.camera.world2screen(
+			  bloc_position + bloc.get_position(hierarchy) +
+			  bloc.top_box_position + bloc.info_bt_position) - size / 2 - Vec2(0, 50)
+			
+			draw.rect(self.window_surface, "white", (position - MARGIN, size + 2 * MARGIN), 0, 5)
+			draw.rect(self.window_surface, "black", (position - MARGIN, size + 2 * MARGIN), 1, 5)
+			for i, line in enumerate(text):
+				draw_text(self.window_surface, line, position + (i + .5) * Vec2(0, FONT_20.get_height()),
+				          20, align="left", bold=i == 0)
+		
 		if self.selected_bloc is not None:
 			position, bloc = self.selected_bloc
 			bloc.draw(self.window_surface, self.camera, position, selected=True)
@@ -363,13 +404,12 @@ class BendayApp(App):
 			draw_text(self.window_surface, node, Vec2(20, 160 + i * 20), size=15, align="left",
 			          framed=True, back_framed=True, back_frame_color="grey 80")
 		"""
-		# print(self.AST)
 	
 	def draw_ui(self):
-		super().draw_ui()
 		text = "   ".join([f"({i + 1} {bloc_type.__name__[:-4]})" for i, bloc_type in enumerate(BLOCS)])
 		draw_text(self.window_surface, text, Vec2(200, 50), size=15, align="left",
 		          framed=True, back_framed=True, back_frame_color="grey 80")
+		super().draw_ui()
 	
 	def draw_clock(self):
 		n = 12

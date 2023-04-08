@@ -26,7 +26,7 @@ BLOCS = [VariableAssignmentBloc,
 BLOC_CHOICE_SIZE: Vec2 = Vec2(150, 30)
 
 
-class DynamicUI(App):
+class BendayApp(App):
 	def __init__(self):
 		super().__init__("Dynamic UI", "grey 40", fps=120, quit_on_escape=False)
 		

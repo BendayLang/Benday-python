@@ -28,7 +28,7 @@ class App:
 		self.clock: Clock = Clock()
 		self.fps: int = fps
 		
-		self.input: Inputs = Inputs()
+		self.inputs: Inputs = Inputs()
 		self.camera: Camera = Camera(self.window_size)
 		
 		self.quit_on_escape: bool = quit_on_escape
@@ -41,12 +41,12 @@ class App:
 		self.ui_objects = {}
 		if self.bt_quit:
 			self.ui_objects["bt_quit"] = Button(
-			  self.mirror(self.margin + size / 2, by_x=True),
-			  size, "indian red 2", text="QUIT")
+			  "indian red 2", self.mirror(self.margin + size / 2, by_x=True), size, text="QUIT")
 		if self.bt_reset:
 			self.ui_objects["bt_reset"] = Button(
+			  "wheat 2",
 			  self.mirror(self.margin + size / 2 + Vec2(self.margin.x + size.x, 0), by_x=True),
-			  size, "wheat 2", text="RESET")
+			  size, text="RESET")
 		
 		self.running: bool = True
 		self.changed: bool = True
@@ -56,7 +56,7 @@ class App:
 	def run(self):
 		"""Boucle principale de l’application."""
 		while self.running:
-			self.running = self.input.get_events(event.get())
+			self.running = self.inputs.get_events(event.get())
 			
 			delta = self.clock.tick(self.fps)
 			
@@ -80,7 +80,7 @@ class App:
 	
 	def manage_inputs(self, delta: int):
 		"""Gestion des entrées."""
-		if self.quit_on_escape and self.input.K_ESCAPE == Key.CLICKED:
+		if self.quit_on_escape and self.inputs.K_ESCAPE == Key.CLICKED:
 			self.running = False
 			return
 		
@@ -93,11 +93,11 @@ class App:
 			if self.ui_objects["bt_reset"].state == Key.UNCLICKED:
 				self.reset()
 		
-		if self.input.WINDOW_RESIZED:
+		if self.inputs.WINDOW_RESIZED:
 			self.resize()
 		
 		for ui_object in self.ui_objects.values():
-			ui_object.update(self.input.mouse)
+			ui_object.update(delta, self.inputs, self.camera)
 			if ui_object.changed:
 				self.changed = True
 		
@@ -127,7 +127,7 @@ class App:
 	def mirror(self, position: Vec2, by_x: bool = False, by_y: bool = False) -> Vec2:
 		return Vec2(self.window_size.x - position.x if by_x else position.x,
 		            self.window_size.y - position.y if by_y else position.y)
-		
+	
 	def keys_move_slider(self, delta: int, slider: Slider,
 	                     key_plus: Key, key_minus: Key, speed: float = None):
 		if not slider.visible: return
@@ -163,7 +163,7 @@ class App:
 	
 	def draw_grid(self, color: Color = None, scale: float = 1 / 100, draw_border: bool = False):
 		# Affiche la grille
-		grid_color = darker(self.window_color, 0.9) \
+		grid_color = darker(self.window_color, 0.9)\
 			if color is None else color
 		# scale = 10 ** round(log10(self.camera.scale) - 2)
 		

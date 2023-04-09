@@ -1,5 +1,6 @@
-"""Ce programme python contient des éléments d'interface utilisateur."""
+"""Ce programme python contient des éléments d’interface utilisateur."""
 from colorsys import rgb_to_hsv, hsv_to_rgb
+from dataclasses import dataclass, field
 
 from pygame import SRCALPHA, Surface, Vector2 as Vec2, Color, Rect, draw, transform
 from pygame.font import SysFont
@@ -8,25 +9,34 @@ from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.Inputs import Inputs, Key, Mouse
 from MyPygameLibrary.World import draw_rect
 
-clip = lambda value, min_value, max_value: min(max(value, min_value), max_value)
+clip = lambda value, min_value, max_value: max(min(value, max_value), min_value)
 
 
-class Button:
-	"""Objet graphique d'interface utilisateur récupérant une valeur booléenne."""
+@dataclass(slots=True)
+class UiObject:
 	
-	def __init__(self, position: Vec2, size: Vec2, color: Color, depth: int = 6,
+	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
+		"""Met à jour l’objet"""
+	
+	def draw(self, surface: Surface, camera: Camera | None = None, position: Vec2 | None = None):
+		"""Affiche l’objet sur une surface donnée."""
+
+
+class Button(UiObject):
+	"""Objet graphique d’interface utilisateur récupérant une valeur booléenne."""
+	
+	def __init__(self, color: Color, position: Vec2, size: Vec2,
 	             border: int = 2, border_color: Color = Color("black"),
 	             text: str = None, text_size: int = 28, text_color: Color = Color("black"),
 	             font: str = "arial", bold: bool = False, italic: bool = False,
 	             visible: bool = True, **kwargs):
+		self.color = Color(color)
 		self.position = position
 		"""Position du centre du bouton."""
 		self.size = size
-		self.color = Color(color)
 		
 		self._border = border
 		self._border_color = border_color
-		self._depth = depth
 		self._depth_color = kwargs.get('depth_color', change_color(self.color, v_fonc=lambda v: 0.5 * v))
 		self._corner_radius = kwargs.get('corner_radius', int(min(size) / 6))
 		self.state: Key = Key.UP
@@ -43,7 +53,7 @@ class Button:
 		"""Indique s'il y eu un changement d'état du bouton."""
 		self.visible = visible
 	
-	def update(self, mouse: Mouse):
+	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour le bouton."""
 		if not self.visible: return
 		
@@ -53,14 +63,14 @@ class Button:
 			self.state = Key.UP
 		
 		self.changed = False
-		if mouse.K_LEFT == Key.CLICKED and self.hit_box.collidepoint(mouse.position):
+		if inputs.mouse.K_LEFT == Key.CLICKED and self.hit_box.collidepoint(inputs.mouse.position):
 			self.state = Key.CLICKED
 			self.changed = True
-		elif self.state == Key.DOWN and mouse.K_LEFT == Key.UNCLICKED:
+		elif self.state == Key.DOWN and inputs.mouse.K_LEFT == Key.UNCLICKED:
 			self.state = Key.UNCLICKED
 			self.changed = True
 	
-	def draw(self, surface: Surface):
+	def draw(self, surface: Surface, camera: Camera | None = None, position: Vec2 | None = None):
 		"""Affiche le bouton."""
 		if not self.visible: return
 		
@@ -69,7 +79,6 @@ class Button:
 			draw.rect(surface, self._depth_color, self.hit_box, False, self._corner_radius)
 			draw.rect(surface, self.color, rect, False, self._corner_radius)
 		else:
-			rect.y += self._depth
 			draw.rect(surface, self._pushed_color, rect, False, self._corner_radius)
 		draw.rect(surface, self._border_color, rect, self._border, self._corner_radius)
 		
@@ -78,7 +87,7 @@ class Button:
 			          self._font, self._bold, self._italic)
 	
 	@property
-	def hit_box(self): return Rect(self._top_left, self.size + Vec2(0, self._depth))
+	def hit_box(self): return Rect(self._top_left, self.size)
 	
 	@property
 	def _top_left(self) -> Vec2: return self.position - self.size / 2
@@ -99,7 +108,7 @@ class Button:
 	def border_color(self, value: Color): self._border_color = value; self.changed = True
 
 
-class Slider:
+class Slider(UiObject):
 	"""Objet graphique d'interface utilisateur permettant de
 	sélectionner une valeur dans une plage de valeurs."""
 	
@@ -129,7 +138,7 @@ class Slider:
 		"""Indique s'il y eu un changement d'état du bouton."""
 		self.visible = visible
 	
-	def update(self, mouse: Mouse):
+	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour le slider."""
 		if not self.visible: return
 		
@@ -139,20 +148,22 @@ class Slider:
 			self.state = Key.UP
 		
 		self.changed = False
-		if mouse.K_LEFT == Key.CLICKED and self.hit_box.collidepoint(mouse.position):
+		if inputs.mouse.K_LEFT == Key.CLICKED and self.hit_box.collidepoint(inputs.mouse.position):
 			self.state = Key.CLICKED
 			self.changed = True
-		elif self.state == Key.DOWN and mouse.K_LEFT == Key.UNCLICKED:
+		elif self.state == Key.DOWN and inputs.mouse.K_LEFT == Key.UNCLICKED:
 			self.state = Key.UNCLICKED
 			self.changed = True
 		
 		if self.state in [Key.CLICKED, Key.DOWN]:
-			self._raw_value = self._orient((mouse.position - self._top_left) / self.length, inv_y=True).y
+			self._raw_value = self._orient((inputs.mouse.position - self._top_left) / self.length,
+			                               inv_y=True).y
 			self.value = self.value
 	
-	def draw(self, surface: Surface, show_hit_box=False):
+	def draw(self, surface: Surface, camera: Camera | None = None, position: Vec2 | None = None):
 		"""Affiche le slider."""
 		if not self.visible: return
+		show_hit_box = False
 		
 		draw.rect(surface, self.color, Rect(
 		  self._top_left + (Vec2(-self._radius, 0) if self._horizontal
@@ -311,8 +322,8 @@ KEY_DOWN_SPEED: float = 0.3
 MARGIN: int = 5
 
 
-class TextBox:
-	"""Objet graphique d'interface utilisateur permettant d’entrer du texte."""
+class TextBox(UiObject):
+	"""Objet graphique d’interface utilisateur permettant d’entrer du texte."""
 	
 	def __init__(self, position: Vec2, size: Vec2, color: Color = "white", default_color: Color = None,
 	             text: str = "", default_text: str = "enter text", fixed_size: bool = True,
@@ -346,9 +357,11 @@ class TextBox:
 		self.size_changed: bool = False
 		self.changed: bool = False
 		"""Indique s'il y eu un changement d'état de la boîte de texte."""
-		self.selected = selected
+		self.selected: bool = selected
 		"""Indique si la boîte de texte est sélectionnée et prend les entrées du clavier."""
-		self.visible = visible
+		self.visible: bool = visible
+		
+		self.text_changed: bool = False
 		
 		self.hovered = False
 		self.text_surface: Surface = None
@@ -356,21 +369,30 @@ class TextBox:
 	def __repr__(self):
 		return f"TextBox({self.text})"
 	
-	def update(self, tick: float, inputs: Inputs, camera: Camera | None = None):
+	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour la boîte de texte."""
 		if not self.visible: return
+		
 		self.changed = False
+		self.text_changed = False
 		self.size_changed = False
+		
+		if inputs.mouse.K_LEFT == Key.CLICKED:
+			if self.hit_box.collidepoint(inputs.mouse.position):
+				self.selected = True
+				self.changed = True
+		
 		if not self.selected: return
 		
-		self._timer_key_down += tick
-		self._timer_bar_blink += tick
+		self._timer_key_down += delta
+		self._timer_bar_blink += delta
 		
 		if inputs.TEXT_INPUT:
 			self.text = self.text[:self.char] + inputs.TEXT_INPUT + self.text[self.char:]
 			self.char += len(inputs.TEXT_INPUT)
 			self._timer_bar_blink = 0
 			self.changed = True
+			self.text_changed = True
 		
 		if self.char > 0:
 			if inputs.K_BACKSPACE == Key.CLICKED:
@@ -388,8 +410,10 @@ class TextBox:
 		if self.char < len(self.text):
 			if inputs.K_DELETE == Key.CLICKED:
 				self.text = self.text[:self.char] + self.text[self.char + 1:]
+				self.text_changed = True
 			elif inputs.K_DELETE == Key.DOWN and self._timer_key_down > KEY_DOWN_TIME:
 				self.text = self.text[:self.char] + self.text[self.char + 1:]
+				self.text_changed = True
 			
 			if inputs.K_RIGHT == Key.CLICKED:
 				self.char += 1
@@ -400,13 +424,14 @@ class TextBox:
 			self._timer_bar_blink = 0
 			self._timer_key_down = 0
 			self.changed = True
+			self.text_changed = True
 		elif Key.DOWN in [inputs.K_BACKSPACE, inputs.K_DELETE, inputs.K_LEFT, inputs.K_RIGHT]:
 			self._timer_bar_blink = 0
 			if self._timer_key_down > KEY_DOWN_TIME:
-				self._timer_key_down = KEY_DOWN_TIME - tick / KEY_DOWN_SPEED
+				self._timer_key_down = KEY_DOWN_TIME - delta / KEY_DOWN_SPEED
 				self.changed = True
 		
-		if BAR_BLINK_TIME < self._timer_bar_blink < BAR_BLINK_TIME + tick:
+		if BAR_BLINK_TIME < self._timer_bar_blink < BAR_BLINK_TIME + delta:
 			self.changed = True
 		if self._timer_bar_blink > BAR_BLINK_TIME * 2:
 			self._timer_bar_blink = 0
@@ -418,7 +443,7 @@ class TextBox:
 		if not self.fixed_size:
 			self.update_size(camera)
 	
-	def update_size(self, camera: Camera | None):
+	def update_size(self, camera: Camera | None = None):
 		margin = MARGIN if camera is None else MARGIN * camera.scale
 		font_size = self._text_size if camera is None else int(self._text_size * camera.scale)
 		font = SysFont(self._font, font_size, self._bold, self._italic)
@@ -524,7 +549,7 @@ class TextBox:
 		
 		self.draw_background(surface, camera, position)
 		
-		if self.changed or self.text_surface is None \
+		if self.changed or self.text_surface is None\
 		  or (camera.size_changed if camera is not None else False):
 			self.text_surface = self.get_text_surface(camera) if self.text\
 				else self.get_default_text_surface(camera)
@@ -653,6 +678,162 @@ class MultiBox:
 	def text(self, x: int, y: int) -> str: return self.text_array[x][y]
 
 
+SLIDER_WIDTH: int = 12
+
+
+@dataclass(slots=True)
+class RollingList(UiObject):
+	"""Liste déroulante permettant de choisir parmi une liste d’items."""
+	position: Vec2
+	size: Vec2
+	words: list[str]
+	color: Color = field(default_factory=lambda: Color("white"))
+	selected_word: int | None = None
+	text_color: Color = field(default_factory=lambda: Color("black"))
+	text_size: int = 20
+	font: str = "arial"
+	border: int = 1
+	border_color: Color = field(default_factory=lambda: Color("black"))
+	corner_radius: int = 0
+	slider_position: int = 0
+	slider_selected: bool = False
+	text_selected: bool = False
+	slider_color: Color = None
+	text_surface: Surface = None
+	line_height: int = None
+	changed: bool = False
+	
+	def __post_init__(self):
+		if self.slider_color is None:
+			self.slider_color = darker(self.color, .7)
+		
+		font = SysFont(self.font, self.text_size)
+		self.line_height = font.get_height()
+		width = self.size.x - 3 * MARGIN - SLIDER_WIDTH
+		self.text_surface = Surface((width, len(self.words) * self.line_height), SRCALPHA)
+		for i, text in enumerate(self.words):
+			height = i * self.line_height
+			self.text_surface.blit(font.render(text, True, self.text_color), (0, height))
+	
+	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
+		self.changed = False
+		if not self.words: return
+		
+		if self.selected_word is not None:
+			if inputs.K_DOWN == Key.CLICKED:
+				self.selected_word += 1
+				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
+				if self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
+					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
+					self.slider_position = clip(self.slider_position, 0, self.course)
+				self.changed = True
+			elif inputs.K_UP == Key.CLICKED:
+				self.selected_word -= 1
+				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
+				if self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
+					self.slider_position = (self.selected_word + 3) * self.line_height - self.size.y
+					self.slider_position = clip(self.slider_position, 0, self.course)
+				self.changed = True
+		
+		position = inputs.mouse.position - self.position
+		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
+		if not ((0 < position.x < size.x and 0 < position.y < size.y) or
+		        self.slider_selected or self.text_selected):
+			if inputs.mouse.K_LEFT == Key.CLICKED and self.selected_word is not None:
+				self.selected_word = None
+				self.changed = True
+			return
+		
+		if inputs.mouse.K_LEFT == Key.CLICKED:
+			if position.x < self.size.x - SLIDER_WIDTH - MARGIN:
+				self.selected_word = int((position.y + self.slider_position) / self.line_height)
+				self.text_selected = True
+			else:
+				self.slider_position = (position.y - self.slider_height / 2) \
+				                       / (size.y - self.slider_height) * self.course
+				self.slider_position = clip(self.slider_position, 0, self.course)
+				self.slider_selected = True
+			self.changed = True
+		elif inputs.mouse.K_LEFT == Key.UNCLICKED and (self.slider_selected or self.text_selected):
+			self.slider_selected = False
+			self.text_selected = False
+			self.changed = True
+		
+		if self.slider_selected:
+			self.slider_position = (position.y - self.slider_height / 2) \
+			                       / (size.y - self.slider_height) * self.course
+			self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+		
+		if self.text_selected:
+			self.selected_word = int((position.y + self.slider_position) / self.line_height)
+			self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
+			self.changed = True
+		
+		if inputs.mouse.scroll:
+			if self.text_surface.get_height() > self.size.y:
+				self.slider_position -= inputs.mouse.scroll * 5
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+	
+	def draw(self, surface: Surface, camera: Camera | None = None, position: Vec2 | None = None):
+		if not self.words: return
+		
+		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
+		box_surface = Surface(size, SRCALPHA)
+		draw.rect(box_surface, self.color, ((0, 0), size), 0, self.corner_radius)
+		draw.rect(box_surface, self.border_color, ((0, 0), size), self.border, self.corner_radius)
+		
+		box_surface.blit(self.text_surface, (MARGIN, -self.slider_position))
+		
+		width = size.x - 2 * MARGIN - SLIDER_WIDTH
+		for i, text in enumerate(self.words):
+			height = i * self.line_height - self.slider_position
+			draw.line(box_surface, self.text_color, (0, height), (width, height))
+		
+		if self.selected_word is not None:
+			selected_surface = Surface((width, self.line_height))
+			selected_surface.set_alpha(100)
+			box_surface.blit(selected_surface,
+			                 (1, self.selected_word * self.line_height - self.slider_position))
+		
+		if self.text_surface.get_height() > self.size.y:
+			color = darker(self.slider_color, .7) if self.slider_selected else self.slider_color
+			draw.rect(box_surface, color, (Vec2(width, self.slider_position) + Vec2(MARGIN),
+			                               (SLIDER_WIDTH, self.slider_height)), 0, self.corner_radius)
+			draw.rect(box_surface, "black", (Vec2(width, self.slider_position) + Vec2(MARGIN),
+			                                 (SLIDER_WIDTH, self.slider_height)), 1, self.corner_radius)
+		
+		surface.blit(box_surface, self.position)
+	
+	def change_words(self, new_words: list[str]):
+		self.words = new_words
+		self.selected_word = None
+		self.slider_position = 0
+		
+		font = SysFont(self.font, self.text_size)
+		width = self.size.x - 3 * MARGIN - SLIDER_WIDTH
+		self.text_surface = Surface((width, len(self.words) * self.line_height), SRCALPHA)
+		for i, text in enumerate(self.words):
+			height = i * self.line_height
+			self.text_surface.blit(font.render(text, True, self.text_color), (0, height))
+		
+		self.changed = True
+	
+	@property
+	def course(self) -> int:
+		return self.text_surface.get_height() - self.size.y
+	
+	@property
+	def slider_height(self) -> int:
+		return self.size.y - self.course - 2 * MARGIN
+	
+	@property
+	def selected_text(self) -> str:
+		if self.selected_word is None: return None
+		return self.words[self.selected_word]
+
+
 def draw_text(surface: Surface, text: str, position: Vec2, size: int = 20, color: Color = "black",
               font: str = "tw cen", bold: bool = False, italic: bool = False,
               align: str = "center", camera: Camera = None,
@@ -711,16 +892,18 @@ def do_nothing(x: float) -> float: return x
 
 def hsv_color(h: int, s: int, v: int) -> Color:
 	"""Renvoie une couleur selon la teinte, la saturation et la luminosité."""
-	r, g, b = hsv_to_rgb(clip(h / 360 % 1, 0, 1), clip(s / 100, 0, 1), clip(v / 100, 0, 1))
+	r, g, b = hsv_to_rgb(clip(h / 360 % 1, 0, 1),
+	                     clip(s / 100, 0, 1),
+	                     clip(v / 100, 0, 1))
 	return Color(int(r * 255), int(g * 255), int(b * 255))
 
 
 def change_color(color: Color, h_fonc=do_nothing, s_fonc=do_nothing, v_fonc=do_nothing) -> Color:
 	if type(color) is not Color: color = Color(color)
 	h, s, v = rgb_to_hsv(color.r / 255, color.g / 255, color.b / 255)
-	r, g, b = hsv_to_rgb(min(max(h_fonc(h), 0), 1),
-	                     min(max(s_fonc(s), 0), 1),
-	                     min(max(v_fonc(v), 0), 1))
+	r, g, b = hsv_to_rgb(clip(h_fonc(h), 0, 1),
+	                     clip(s_fonc(s), 0, 1),
+	                     clip(v_fonc(v), 0, 1))
 	return Color(int(r * 255), int(g * 255), int(b * 255))
 
 

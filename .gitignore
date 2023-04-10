@@ -4,3 +4,4 @@ MondeVide.py
 *.pyc
 target
 *.lock
+venv

@@ -1,6 +1,7 @@
 from pygame import Vector2 as Vec2, draw
 
 from AST import ASTNode, ASTNodeType
+from Blocs.MotherBloc import MotherBloc
 from Constantes import FONT_20
 from Containers import HoveredOn
 
@@ -17,7 +18,6 @@ from Blocs.WhileBloc import WhileBloc
 from Blocs.VariableReturnBloc import VariableReturnBloc
 from Blocs.PrintBloc import PrintBloc
 from executor import exec_ast
-from fuzzy_finder import fuzzy_find
 
 BLOCS = [VariableAssignmentBloc,
          IfElseBloc,
@@ -26,10 +26,11 @@ BLOCS = [VariableAssignmentBloc,
          VariableReturnBloc,
          PrintBloc]
 
-BLOCS_NAMES = [bloc.__name__ for bloc in BLOCS]
+BLOCS_NAMES = [bloc.__name__.split("Bloc")[0]
+               for bloc in BLOCS]
 
-BLOC_CHOICE_SIZE: Vec2 = Vec2(150, 30)
-ROLLING_LIST_SIZE: Vec2 = Vec2(210, 100)
+BLOC_CHOICE_SIZE: Vec2 = Vec2(200, 30)
+ROLLING_LIST_HEIGHT: int = 120
 
 INFO_TIME: int = 800
 MARGIN: Vec2 = Vec2(5)
@@ -51,7 +52,7 @@ class BendayApp(App):
 		                     left_limit=-2000, right_limit=2000, top_limit=-1000, bottom_limit=4000)
 		self.rot = 0
 		
-		self.blocs: list[tuple[Vec2, ParentBloc]] = [(Vec2(0, 0), SequenceBloc())]
+		self.blocs: list[tuple[Vec2, ParentBloc]] = [(Vec2(0, 0), MotherBloc())]
 		self.selected_bloc: tuple[Vec2, ParentBloc] = None
 		
 		self.bloc_hovered = None
@@ -64,6 +65,8 @@ class BendayApp(App):
 		self.info_timer: int = 0
 		
 		self.AST = self.generate_AST()
+		
+		self.variables: list[str] = ["bob"]
 	
 	def reset(self):
 		"""Vide la scène de tous les blocs."""
@@ -79,55 +82,57 @@ class BendayApp(App):
 		self.changed = True
 		self.AST = self.generate_AST()
 	
+	def manage_inputs(self, delta: int):
+		super().manage_inputs(delta)
+		if self.text_box is None: return
+		
+		self.text_box.update(delta, self.inputs)
+		if self.text_box.changed:
+			self.changed = True
+		if self.text_box.size_changed and self.text_box_bloc is not None:
+			self.blocs[self.text_box_bloc][1].update_size()
+		
+		self.rolling_list.update(delta, self.inputs)
+		if self.text_box.text_changed:
+			self.rolling_list.update_words(self.text_box.text)
+		
+		if self.rolling_list.changed:
+			self.changed = True
+			if self.rolling_list.selected_text is not None:
+				self.text_box.text = self.rolling_list.selected_text
+				self.text_box.select()
+		
+		if self.inputs.K_RETURN == Key.CLICKED:
+			if self.rolling_list.selected_word is not None:
+				if self.text_box.text == self.rolling_list.selected_text:
+					if self.text_box_bloc is None:
+						self.add_a_bloc()
+					self.update_AST()
+				else:
+					self.text_box.text = self.rolling_list.selected_text
+					self.text_box.select()
+					self.changed = True
+			elif self.rolling_list.words:
+				self.rolling_list.selected_word = 0
+				self.text_box.text = self.rolling_list.selected_text
+				self.text_box.select()
+				self.changed = True
+		
+		if self.inputs.K_DOWN == Key.CLICKED:
+			if self.rolling_list.selected_word is None:
+				self.rolling_list.selected_word = 0
+				self.text_box.text = self.rolling_list.selected_text
+				self.text_box.select()
+				self.changed = True
+	
 	def update(self, delta):
 		super().update(delta)
-		
-		if self.text_box is not None:
-			self.text_box.update(delta, self.inputs)
-			if self.text_box.changed:
-				self.changed = True
-			if self.text_box.size_changed and self.text_box_bloc is not None:
-				self.blocs[self.text_box_bloc][1].update_size()
-		
-		if self.rolling_list is not None:
-			self.rolling_list.update(delta, self.inputs)
-			if self.text_box.text_changed:
-				self.rolling_list.change_words(fuzzy_find(BLOCS_NAMES, self.text_box.text))
-			if self.rolling_list.changed and self.rolling_list.selected_text is not None:
-				self.text_box.text = self.rolling_list.selected_text
-				self.text_box.changed = True
-				self.changed = True
 		
 		if self.inputs.K_ESCAPE == Key.CLICKED:
 			if self.text_box is None:
 				self.running = False
 				return
 			self.update_AST()
-		elif self.inputs.K_RETURN == Key.CLICKED:
-			if self.rolling_list is not None:
-				if self.rolling_list.selected_word is not None:
-					if self.text_box.text == self.rolling_list.selected_text:
-						self.add_a_bloc()
-						self.update_AST()
-					else:
-						self.text_box.text = self.rolling_list.selected_text
-						self.text_box.changed = True
-						self.changed = True
-				else:
-					self.rolling_list.selected_word = 0
-					self.text_box.text = self.rolling_list.selected_text
-					self.text_box.changed = True
-					self.changed = True
-			elif self.text_box is not None:
-				if self.text_box_bloc is None:
-					self.add_a_bloc()
-				self.update_AST()
-		elif self.inputs.K_DOWN == Key.CLICKED:
-			if self.rolling_list is not None and self.rolling_list.selected_word is None:
-				self.rolling_list.selected_word = 0
-				self.text_box.text = self.rolling_list.selected_text
-				self.text_box.changed = True
-				self.changed = True
 		
 		if self.ui_objects["bt_play"].state == Key.UNCLICKED:
 			exec_ast(self.AST)
@@ -152,7 +157,7 @@ class BendayApp(App):
 			self.changed = True
 		
 		if self.mouse_hovered is not None:
-			if self.mouse_hovered[2] == (HoveredOn.INFO, None):
+			if self.mouse_hovered[2] == (HoveredOn.INFO_BT, None):
 				if self.info_timer <= INFO_TIME <= self.info_timer + delta:
 					self.changed = True
 				self.info_timer += delta
@@ -180,7 +185,7 @@ class BendayApp(App):
 		  default_text="Enter bloc type", selected=True, corner_radius=3)
 		
 		self.rolling_list = RollingList(
-		  position + Vec2(0, BLOC_CHOICE_SIZE.y - 1), ROLLING_LIST_SIZE,
+		  position + Vec2(0, BLOC_CHOICE_SIZE.y - 1), ROLLING_LIST_HEIGHT,
 		  BLOCS_NAMES, corner_radius=3)
 	
 	def mouse_left_click(self):
@@ -213,11 +218,11 @@ class BendayApp(App):
 				self.selected_bloc = removed_bloc
 				self.update_AST()
 			
-			case HoveredOn.INFO:
+			case HoveredOn.INFO_BT:
 				self.info_timer = INFO_TIME
 				self.changed = True
 			
-			case HoveredOn.CROSS:
+			case HoveredOn.CROSS_BT:
 				container = bloc.get_container(hierarchy)
 				
 				if container is None:
@@ -237,7 +242,12 @@ class BendayApp(App):
 				hovered_bloc.slots[hovered_on[1]].text_box.select()
 				self.text_box = hovered_bloc.slots[hovered_on[1]].text_box
 				self.text_box_bloc = bloc_id
-				# TODO add rolling_list
+				
+				self.rolling_list = RollingList(
+				  self.camera.world2screen(
+				    position + bloc.get_position(hierarchy) +
+				    hovered_bloc.slot_position(hovered_on[1]) + Vec2(0, self.text_box.size.y)),
+				  ROLLING_LIST_HEIGHT, self.variables, corner_radius=3)
 			
 			case HoveredOn.OTHER:
 				hovered_bloc = bloc.get_bloc(hierarchy)
@@ -248,6 +258,12 @@ class BendayApp(App):
 				if hovered_bloc.buttons[hovered_on[1]] == "name_box":
 					self.text_box = hovered_bloc.name_box
 					self.text_box_bloc = bloc_id
+					
+					self.rolling_list = RollingList(
+					  self.camera.world2screen(
+						position + bloc.get_position(hierarchy) +
+						hovered_bloc.button_position(hovered_on[1]) + Vec2(0, self.text_box.size.y)),
+					  ROLLING_LIST_HEIGHT, self.variables, corner_radius=3)
 	
 	def update_AST(self):
 		if self.text_box is not None:
@@ -320,7 +336,7 @@ class BendayApp(App):
 		if new_mouse_hovered == self.mouse_hovered: return
 		
 		if new_mouse_hovered == (0, [], (HoveredOn.SELF, None)):
-			new_mouse_hovered = None
+			new_mouse_hovered = (0, [], (HoveredOn.SEQUENCE, 0))
 		
 		if self.mouse_hovered is not None:
 			bloc_id, hierarchy, _ = self.mouse_hovered
@@ -404,7 +420,7 @@ class BendayApp(App):
 			bloc_id, hierarchy, _ = self.mouse_hovered
 			bloc_position, bloc = self.blocs[bloc_id]
 			hovered_bloc = bloc.get_bloc(hierarchy)
-			title = f"{hovered_bloc.__class__.__name__}".upper()
+			title = hovered_bloc.__class__.__name__.split("Bloc")[0].upper()
 			text = f"{title}\n{hovered_bloc.__doc__}".replace("\t", "").split("\n")
 			
 			size = Vec2(max([FONT_20.size(line)[0] for line in text]), len(text) * FONT_20.get_height())
@@ -434,12 +450,6 @@ class BendayApp(App):
 			          framed=True, back_framed=True, back_frame_color="grey 80")
 		"""
 	
-	def draw_ui(self):
-		text = "   ".join([f"({i + 1} {bloc_type.__name__[:-4]})" for i, bloc_type in enumerate(BLOCS)])
-		draw_text(self.window_surface, text, Vec2(200, 50), size=15, align="left",
-		          framed=True, back_framed=True, back_frame_color="grey 80")
-		super().draw_ui()
-	
 	def draw_clock(self):
 		n = 12
 		center = Vec2(100, 110)
@@ -459,21 +469,3 @@ class BendayApp(App):
 			abstract_syntax_tree.data.append(bloc.as_ASTNode())
 		
 		return abstract_syntax_tree
-
-
-"""
-temps = [(time.perf_counter(), "t0")]
-add_time(temps, "update")
-
-
-def add_time(temps: list, name: str = "-"):
-	temps.append((time.perf_counter() - temps[0][0], name))
-
-
-def print_times(temps: list):
-	temps = [temps[1]] +\
-	        [(temps[i + 2][0] - temps[i + 1][0], temps[i + 2][1])
-	         for i in range(len(temps) - 2)]
-	
-	print(' '.join([f"{name}=[{1000 * t:.3f}]" for t, name in temps]))
-"""

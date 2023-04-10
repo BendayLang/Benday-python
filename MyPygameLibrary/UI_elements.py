@@ -8,6 +8,7 @@ from pygame.font import SysFont
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.Inputs import Inputs, Key, Mouse
 from MyPygameLibrary.World import draw_rect
+from fuzzy_finder import fuzzy_find
 
 clip = lambda value, min_value, max_value: max(min(value, max_value), min_value)
 
@@ -685,8 +686,8 @@ SLIDER_WIDTH: int = 12
 class RollingList(UiObject):
 	"""Liste déroulante permettant de choisir parmi une liste d’items."""
 	position: Vec2
-	size: Vec2
-	words: list[str]
+	height: int
+	base_words: list[str]
 	color: Color = field(default_factory=lambda: Color("white"))
 	selected_word: int | None = None
 	text_color: Color = field(default_factory=lambda: Color("black"))
@@ -701,15 +702,20 @@ class RollingList(UiObject):
 	slider_color: Color = None
 	text_surface: Surface = None
 	line_height: int = None
+	words: list[str] = None
+	size: Vec2 = None
 	changed: bool = False
 	
 	def __post_init__(self):
 		if self.slider_color is None:
 			self.slider_color = darker(self.color, .7)
-		
+		self.words = self.base_words
+
 		font = SysFont(self.font, self.text_size)
+		width = max([font.size(word)[0] for word in self.words])
+		self.size = Vec2(width + SLIDER_WIDTH + 3 * MARGIN, self.height)
+		
 		self.line_height = font.get_height()
-		width = self.size.x - 3 * MARGIN - SLIDER_WIDTH
 		self.text_surface = Surface((width, len(self.words) * self.line_height), SRCALPHA)
 		for i, text in enumerate(self.words):
 			height = i * self.line_height
@@ -806,8 +812,8 @@ class RollingList(UiObject):
 		
 		surface.blit(box_surface, self.position)
 	
-	def change_words(self, new_words: list[str]):
-		self.words = new_words
+	def update_words(self, search_word: str):
+		self.words = fuzzy_find(self.base_words, search_word)
 		self.selected_word = None
 		self.slider_position = 0
 		

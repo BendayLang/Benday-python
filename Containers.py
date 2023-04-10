@@ -19,8 +19,9 @@ SEQUENCE_MARGIN: int = 7
 class HoveredOn(Enum):
 	NONE = auto()
 	SELF = auto()
-	CROSS = auto()
-	INFO = auto()
+	CROSS_BT = auto()
+	COPY_BT = auto()
+	INFO_BT = auto()
 	SLOT = auto()
 	SEQUENCE = auto()
 	OTHER = auto()

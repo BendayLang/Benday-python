@@ -7,17 +7,21 @@ from Constantes import MARGIN, RADIUS, SMALL_RADIUS
 from Containers import HoveredOn, Slot, Sequence
 
 from MyPygameLibrary.Camera import Camera
-from MyPygameLibrary.UI_elements import change_color, darker, draw_text, hsv_color
+from MyPygameLibrary.UI_elements import change_color, darker, hsv_color
 from MyPygameLibrary.World import draw_circle, draw_line, draw_rect
 
 TOP_BOX_SIZE: Vec2 = Vec2(100, 25)
 TOP_BOX_MARGIN: int = 3
 
-CROSS_BT_SIZE: Vec2 = Vec2(TOP_BOX_SIZE.y - 2 * TOP_BOX_MARGIN)
 INFO_BT_RADIUS: int = int(TOP_BOX_SIZE.y / 2 - TOP_BOX_MARGIN)
+COPY_BT_SIZE: Vec2 = (TOP_BOX_SIZE.y - 2 * TOP_BOX_MARGIN) * Vec2(4 / 5, 1)
+PAGE_SIZE: Vec2 = COPY_BT_SIZE / 2
+PAGE_DELTA: Vec2 = Vec2(2)
+CROSS_BT_SIZE: Vec2 = Vec2(TOP_BOX_SIZE.y - 2 * TOP_BOX_MARGIN)
 
-CROSS_BT_COLOR: Color = Color("tomato")
-INFO_BT_COLOR: Color = hsv_color(50, 25, 100)
+INFO_BT_COLOR: Color = hsv_color(50, 40, 100)
+COPY_BT_COLOR: Color = hsv_color(40, 10, 40)
+CROSS_BT_COLOR: Color = hsv_color(10, 75, 100)
 
 SHADOW: Vec2 = Vec2(6, 8)
 
@@ -171,10 +175,13 @@ class ParentBloc:
 				return slot_collide
 		
 		if self.collide_info_bt(point):
-			return [], (HoveredOn.INFO, None)
+			return [], (HoveredOn.INFO_BT, None)
+		
+		if self.collide_copy_bt(point):
+			return [], (HoveredOn.COPY_BT, None)
 		
 		if self.collide_cross_bt(point):
-			return [], (HoveredOn.CROSS, None)
+			return [], (HoveredOn.CROSS_BT, None)
 		
 		return [], (HoveredOn.SELF, None)
 	
@@ -253,25 +260,35 @@ class ParentBloc:
 		color = change_color(self.color, s_fonc=lambda s: s * 0.2, v_fonc=lambda _: .9)
 		draw_rect(surface, camera, color, origin, TOP_BOX_SIZE + Vec2(0, 3), 0, RADIUS, -1, -1, 0, 0)
 		
+		border_width = 1 / camera.scale
+		
 		# Info button
-		color = darker(INFO_BT_COLOR, .7) if self.hovered_on[0] == HoveredOn.INFO else INFO_BT_COLOR
+		color = darker(INFO_BT_COLOR, .7) if self.hovered_on[0] == HoveredOn.INFO_BT else INFO_BT_COLOR
 		position = origin + self.info_bt_position
 		draw_circle(surface, camera, color, position, INFO_BT_RADIUS)
-		draw_circle(surface, camera, "black", position, INFO_BT_RADIUS, 1 / camera.scale)
+		draw_circle(surface, camera, "black", position, INFO_BT_RADIUS, border_width)
 		draw_line(surface, camera, "black",
 		          position + Vec2(-1 / camera.scale, 2 / 4 * INFO_BT_RADIUS),
 		          position + Vec2(-1 / camera.scale, -1 / 5 * INFO_BT_RADIUS), 1.5)
 		draw_circle(surface, camera, "black", position + Vec2(0, -1 / 2 * INFO_BT_RADIUS), 1.5)
 		
-		# Name
-		draw_text(surface, "Name", origin + TOP_BOX_SIZE / 2, 8, camera=camera)
+		# Copy button
+		color = darker(COPY_BT_COLOR, .7) if self.hovered_on[0] == HoveredOn.COPY_BT else COPY_BT_COLOR
+		position = origin + self.copy_bt_position
+		draw_rect(surface, camera, color, position, COPY_BT_SIZE, border_radius=SMALL_RADIUS)
+		color = darker("white", .7) if self.hovered_on[0] == HoveredOn.COPY_BT else "white"
+		draw_rect(surface, camera, color, position + PAGE_DELTA, PAGE_SIZE)
+		draw_rect(surface, camera, "black", position + PAGE_DELTA, PAGE_SIZE, border_width)
+		draw_rect(surface, camera, color, position + PAGE_SIZE - PAGE_DELTA, PAGE_SIZE)
+		draw_rect(surface, camera, "black", position + PAGE_SIZE - PAGE_DELTA, PAGE_SIZE, border_width)
 		
 		# Cross button
-		color = darker(CROSS_BT_COLOR, .7) if self.hovered_on[0] == HoveredOn.CROSS else CROSS_BT_COLOR
-		draw_rect(surface, camera, color, origin + self.cross_bt_position, CROSS_BT_SIZE,
-		          border_radius=SMALL_RADIUS)
+		color = darker(CROSS_BT_COLOR, .7) if self.hovered_on[
+			                                      0] == HoveredOn.CROSS_BT else CROSS_BT_COLOR
+		position = origin + self.cross_bt_position
+		draw_rect(surface, camera, color, position, CROSS_BT_SIZE, border_radius=SMALL_RADIUS)
 		h = CROSS_BT_SIZE.y / 2 * (1 / 2)
-		center = origin + self.cross_bt_position + CROSS_BT_SIZE / 2
+		center = position + CROSS_BT_SIZE / 2
 		draw_line(surface, camera, "black", center + (h, h), center + (-h, -h), 1)
 		draw_line(surface, camera, "black", center + (-h, h), center + (h, -h), 1)
 	
@@ -286,6 +303,14 @@ class ParentBloc:
 	def collide_info_bt(self, point: Vec2) -> bool:
 		delta = point - (self.top_box_position + self.info_bt_position)
 		return delta.x ** 2 + delta.y ** 2 <= INFO_BT_RADIUS ** 2
+	
+	@property
+	def copy_bt_position(self) -> Vec2:
+		return Vec2((TOP_BOX_SIZE.x - COPY_BT_SIZE.x) / 2, TOP_BOX_MARGIN + 1)
+	
+	def collide_copy_bt(self, point: Vec2) -> bool:
+		delta = point - (self.top_box_position + self.copy_bt_position)
+		return 0 <= delta.x <= COPY_BT_SIZE.x and 0 <= delta.y <= COPY_BT_SIZE.y
 	
 	@property
 	def cross_bt_position(self) -> Vec2:

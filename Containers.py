@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Any
 from pygame import Color, Rect, Surface, Vector2 as Vec2
 
-from AST import ASTNode, ASTNodeType
+from AST import ASTNodeSequence, ASTNodeValue
 from Constantes import RADIUS, SMALL_RADIUS
 
 from MyPygameLibrary.Camera import Camera
@@ -127,10 +127,10 @@ class Slot:
 		if hovered:
 			draw_rect(surface, camera, "black", position, self.size, 1, SMALL_RADIUS)
 	
-	def as_AST(self) -> ASTNode | str:
+	def as_AST(self) -> ASTNodeValue | Any:
 		"""Retourne l’ASTNode de la séquence."""
 		if self.bloc is None:
-			return ASTNode(ASTNodeType.VALUE, self.text_box.text if self.text_box.text else None)
+			return ASTNodeValue(self.text_box.text if self.text_box.text else None)
 		else:
 			return self.bloc.as_ASTNode()
 
@@ -286,6 +286,6 @@ class Sequence:
 		if hovered:
 			draw_rect(surface, camera, "black", position, self.size, 1, RADIUS)
 	
-	def as_AST(self) -> list[ASTNode]:
+	def as_AST(self) -> ASTNodeSequence:
 		"""Retourne la list contenant les ASTNodes de la séquence."""
-		return [bloc.as_ASTNode() for bloc in self.blocs]
+		return ASTNodeSequence([bloc.as_ASTNode() for bloc in self.blocs])

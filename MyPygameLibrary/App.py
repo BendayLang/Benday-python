@@ -36,16 +36,16 @@ class App:
 		self.bt_quit = bt_quit
 		self._draw_fps = draw_fps
 		
-		self.margin: Vec2 = Vec2(20)
+		self.margin: int = 20
 		size = Vec2(120, 50)
 		self.ui_objects = {}
 		if self.bt_quit:
 			self.ui_objects["bt_quit"] = Button(
-			  "indian red 2", self.mirror(self.margin + size / 2, by_x=True), size, text="QUIT")
+			  "indian red 2", self.mirror(Vec2(size.x + self.margin, self.margin), by_x=True),
+			  size, text="QUIT")
 		if self.bt_reset:
 			self.ui_objects["bt_reset"] = Button(
-			  "wheat 2",
-			  self.mirror(self.margin + size / 2 + Vec2(self.margin.x + size.x, 0), by_x=True),
+			  "wheat 2", self.mirror(Vec2((size.x + self.margin) * 2, self.margin), by_x=True),
 			  size, text="RESET")
 		
 		self.running: bool = True
@@ -80,17 +80,17 @@ class App:
 	
 	def manage_inputs(self, delta: int):
 		"""Gestion des entrées."""
-		if self.quit_on_escape and self.inputs.K_ESCAPE == Key.CLICKED:
+		if self.quit_on_escape and self.inputs.K_ESCAPE == Key.PRESSED:
 			self.running = False
 			return
 		
 		if self.bt_quit:
-			if self.ui_objects["bt_quit"].state == Key.UNCLICKED:
+			if self.ui_objects["bt_quit"].is_released():
 				self.running = False
 				return
 		
 		if self.bt_reset:
-			if self.ui_objects["bt_reset"].state == Key.UNCLICKED:
+			if self.ui_objects["bt_reset"].is_released():
 				self.reset()
 		
 		if self.inputs.WINDOW_RESIZED:
@@ -118,11 +118,12 @@ class App:
 		
 		if self.bt_quit:
 			bt_quit = self.ui_objects["bt_quit"]
-			bt_quit.position = self.mirror(self.margin + bt_quit.size / 2, by_x=True)
+			bt_quit.position = self.mirror(Vec2(bt_quit.size.x + self.margin,
+			                                    self.margin), by_x=True)
 		if self.bt_reset:
 			bt_reset = self.ui_objects["bt_reset"]
-			bt_reset.position = self.mirror(self.margin + bt_reset.size / 2 +
-			                                Vec2(self.margin.x + bt_reset.size.x, 0), by_x=True)
+			bt_reset.position = self.mirror(Vec2((bt_reset.size.x + self.margin) * 2,
+			                                     self.margin), by_x=True)
 	
 	def mirror(self, position: Vec2, by_x: bool = False, by_y: bool = False) -> Vec2:
 		return Vec2(self.window_size.x - position.x if by_x else position.x,
@@ -132,11 +133,11 @@ class App:
 	                     key_plus: Key, key_minus: Key, speed: float = None):
 		if not slider.visible: return
 		if speed is None: speed = self.LONG_CLICK_SPEED
-		if key_plus == Key.CLICKED:
+		if key_plus == Key.PRESSED:
 			slider.value += slider.clamp
 			self.key_down_timer = 0
 			self.changed = True
-		elif key_minus == Key.CLICKED:
+		elif key_minus == Key.PRESSED:
 			slider.value -= slider.clamp
 			self.key_down_timer = 0
 			self.changed = True

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from pygame import Color, Surface, Vector2 as Vec2
 
+from AST import ASTNodeSequence
 from Constantes import MARGIN, RADIUS
 from Blocs.ParentBloc import ParentBloc, TOP_BOX_SIZE
 from Containers import HoveredOn
@@ -49,3 +50,6 @@ class MotherBloc(ParentBloc):
 		
 		hovered = self.hovered_on[0] is not HoveredOn.NONE
 		self.sequences[0].draw(surface, camera, origin + self.sequence_position(0), hovered)
+	
+	def as_ASTNode(self) -> ASTNodeSequence:
+		return self.sequences[0].as_AST()

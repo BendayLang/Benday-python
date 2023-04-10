@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pygame import Color, Surface, Vector2 as Vec2
 
-from AST import ASTNode, ASTNodeType
+from AST import ASTNodeIfElse
 from Constantes import FONT_20, INNER_MARGIN, MARGIN, SMALL_RADIUS
 from Blocs.ParentBloc import ParentBloc
 from Containers import Sequence, Slot
@@ -28,24 +28,18 @@ ELSE_COLOR: Color = hsv_color(0, 30, 90)
 
 
 @dataclass(slots=True)
-class ASTNodeIfElse:
-	if_condition: ASTNode
-	if_sequence: list[ASTNode]
-	elifs: list[tuple[ASTNode, list[ASTNode]]] | None
-	else_sequence: list[ASTNode] | None
-
-
-@dataclass
 class IfElseBloc(ParentBloc):
 	"""Bloc de logique - si la variable booléenne sur le côté gauche du bloc est vraie,
 	la séquence du haut est exécutée, sinon la séquence du haut est exécutée."""
-	is_else: bool = False
+	is_else: bool
 	
 	def __init__(self):
-		super().__init__(COLOR,
-		                 [Slot(COLOR, "False")],
-		                 [Sequence(IF_COLOR)],
-		                 ["elif_add", "else"])
+		self.is_else = False
+		super(IfElseBloc, self).__init__(
+		  COLOR,
+		  [Slot(COLOR, "False")],
+		  [Sequence(IF_COLOR)],
+		  ["elif_add", "else"])
 	
 	def __repr__(self):
 		return f"If({self.slots}:  {self.sequences})"
@@ -186,12 +180,10 @@ class IfElseBloc(ParentBloc):
 	def text_width(self) -> int:
 		return int(TEXT_ELIF_SIZE.x if len(self.slots) > 1 else TEXT_IF_SIZE.x)
 	
-	def as_ASTNode(self) -> ASTNode:
+	def as_ASTNode(self) -> ASTNodeIfElse:
 		elifs = [(slot.as_AST(), sequence.as_AST())
-		         for slot, sequence in zip(self.slots[1:], self.sequences[1:])] \
+		         for slot, sequence in zip(self.slots[1:], self.sequences[1:])]\
 			if len(self.slots) > 1 else None
 		else_sequence = self.sequences[-1].as_AST() if self.is_else else None
 		
-		return ASTNode(ASTNodeType.IFELSE, ASTNodeIfElse(
-		  self.slots[0].as_AST(), self.sequences[0].as_AST(), elifs, else_sequence
-		))
+		return ASTNodeIfElse(self.slots[0].as_AST(), self.sequences[0].as_AST(), elifs, else_sequence)

@@ -9,12 +9,12 @@ from pygame.font import SysFont
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.Inputs import Inputs, Key, Mouse
 from MyPygameLibrary.World import draw_rect
-from fuzzy_finder import fuzzy_find
+from benday_rust import fuzzy_find
 
 clip = lambda value, min_value, max_value: max(min(value, max_value), min_value)
 
 
-@dataclass(slots=True)
+@dataclass
 class UiObject:
 	
 	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
@@ -31,7 +31,7 @@ class Button(UiObject):
 	             border: int = 2, border_color: Color = Color("black"),
 	             text: str = None, text_size: int = 28, text_color: Color = Color("black"),
 	             font: str = "arial", bold: bool = False, italic: bool = False,
-	             visible: bool = True, **kwargs):
+	             visible: bool = True, corner_radius: int = 4):
 		self.color = Color(color)
 		self.position = position
 		"""Position du centre du bouton."""
@@ -39,12 +39,12 @@ class Button(UiObject):
 		
 		self._border = border
 		self._border_color = border_color
-		self._depth_color = kwargs.get('depth_color', change_color(self.color, v_fonc=lambda v: 0.5 * v))
-		self._corner_radius = kwargs.get('corner_radius', int(min(size) / 6))
+		self._corner_radius = corner_radius
 		self.state: Key = Key.UP
+		self.hovered: bool = False
 		
-		if text is not None:
-			self.text = str(text)
+		self.text = str(text) if text is not None else None
+		if self.text is not None:
 			self._text_size = text_size
 			self._text_color = text_color
 			self._font = font
@@ -57,45 +57,47 @@ class Button(UiObject):
 	
 	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour le bouton."""
+		self.changed = False
 		if not self.visible: return
 		
-		if self.state == Key.CLICKED:
+		if self.state == Key.PRESSED:
 			self.state = Key.DOWN
-		if self.state == Key.UNCLICKED:
+		if self.state == Key.RELEASED:
 			self.state = Key.UP
 		
-		self.changed = False
-		if inputs.mouse.K_LEFT == Key.CLICKED and self.hit_box.collidepoint(inputs.mouse.position):
-			self.state = Key.CLICKED
+		new_hovered = self.hit_box.collidepoint(inputs.mouse.position)
+		if new_hovered != self.hovered:
+			self.hovered = new_hovered
 			self.changed = True
-		elif self.state == Key.DOWN and inputs.mouse.K_LEFT == Key.UNCLICKED:
-			self.state = Key.UNCLICKED
+		
+		if inputs.mouse.K_LEFT == Key.PRESSED and self.hovered:
+			self.state = Key.PRESSED
+			self.changed = True
+		elif self.state == Key.DOWN and inputs.mouse.K_LEFT == Key.RELEASED:
+			self.state = Key.RELEASED
 			self.changed = True
 	
 	def draw(self, surface: Surface, camera: Camera | None = None, position: Vec2 | None = None):
 		"""Affiche le bouton."""
 		if not self.visible: return
 		
-		rect = Rect(self._top_left, self.size)
-		if self.state in [Key.UP, Key.UNCLICKED]:
-			draw.rect(surface, self._depth_color, self.hit_box, False, self._corner_radius)
-			draw.rect(surface, self.color, rect, False, self._corner_radius)
-		else:
-			draw.rect(surface, self._pushed_color, rect, False, self._corner_radius)
-		draw.rect(surface, self._border_color, rect, self._border, self._corner_radius)
+		color = darker(self.color, .8) if self.hovered else self.color
+		if self.state in [Key.DOWN, Key.PRESSED]:
+			color = darker(self.color, .8 * .7)
+		
+		draw.rect(surface, color, self.hit_box, False, self._corner_radius)
+		draw.rect(surface, self._border_color, self.hit_box, self._border, self._corner_radius)
 		
 		if self.text:
-			draw_text(surface, self.text, rect.center, self._text_size, self._text_color,
+			draw_text(surface, self.text, self.hit_box.center, self._text_size, self._text_color,
 			          self._font, self._bold, self._italic)
 	
 	@property
-	def hit_box(self): return Rect(self._top_left, self.size)
+	def hit_box(self): return Rect(self.position, self.size)
 	
-	@property
-	def _top_left(self) -> Vec2: return self.position - self.size / 2
+	def is_pressed(self) -> bool: return self.state == Key.PRESSED
 	
-	@property
-	def _pushed_color(self) -> Color: return change_color(self.color, v_fonc=lambda v: 0.7 * v)
+	def is_released(self) -> bool: return self.state == Key.RELEASED
 	
 	@property
 	def border(self) -> int: return self._border
@@ -144,20 +146,20 @@ class Slider(UiObject):
 		"""Met à jour le slider."""
 		if not self.visible: return
 		
-		if self.state == Key.CLICKED:
+		if self.state == Key.PRESSED:
 			self.state = Key.DOWN
-		if self.state == Key.UNCLICKED:
+		if self.state == Key.RELEASED:
 			self.state = Key.UP
 		
 		self.changed = False
-		if inputs.mouse.K_LEFT == Key.CLICKED and self.hit_box.collidepoint(inputs.mouse.position):
-			self.state = Key.CLICKED
+		if inputs.mouse.K_LEFT == Key.PRESSED and self.hit_box.collidepoint(inputs.mouse.position):
+			self.state = Key.PRESSED
 			self.changed = True
-		elif self.state == Key.DOWN and inputs.mouse.K_LEFT == Key.UNCLICKED:
-			self.state = Key.UNCLICKED
+		elif self.state == Key.DOWN and inputs.mouse.K_LEFT == Key.RELEASED:
+			self.state = Key.RELEASED
 			self.changed = True
 		
-		if self.state in [Key.CLICKED, Key.DOWN]:
+		if self.state in [Key.PRESSED, Key.DOWN]:
 			self._raw_value = self._orient((inputs.mouse.position - self._top_left) / self.length,
 			                               inv_y=True).y
 			self.value = self.value
@@ -181,7 +183,7 @@ class Slider(UiObject):
 		  self._top_left + self._orient(Vec2(0, -self._radius)),
 		  self.size + self._orient(Vec2(0, self.width))), self._border, self._radius)
 		
-		if self.state in [Key.UP, Key.UNCLICKED]:
+		if self.state in [Key.UP, Key.RELEASED]:
 			draw.circle(surface, self._dot_color, self.dot_position, self._dot_radius)
 		else:
 			draw.circle(surface, self._pushed_color, self.dot_position, self._dot_radius)
@@ -277,21 +279,21 @@ class CircularPad:
 		"""Met à jour le pad."""
 		if not self.visible: return
 		
-		if self.state == Key.CLICKED:
+		if self.state == Key.PRESSED:
 			self.state = Key.DOWN
-		if self.state == Key.UNCLICKED:
+		if self.state == Key.RELEASED:
 			self.state = Key.UP
 		
 		self.changed = False
-		if mouse.K_LEFT == Key.CLICKED and self.contains(mouse.position):
-			self.state = Key.CLICKED
+		if mouse.K_LEFT == Key.PRESSED and self.contains(mouse.position):
+			self.state = Key.PRESSED
 			self.changed = True
-		elif self.state == Key.DOWN and mouse.K_LEFT == Key.UNCLICKED:
-			self.state = Key.UNCLICKED
+		elif self.state == Key.DOWN and mouse.K_LEFT == Key.RELEASED:
+			self.state = Key.RELEASED
 			self.value = None
 			self.changed = True
 		
-		if self.state in [Key.CLICKED, Key.DOWN]:
+		if self.state in [Key.PRESSED, Key.DOWN]:
 			self.value = (mouse.position - self.position) / (self.radius - self.dot_radius / 2)
 			self.value = self.value.reflect((0, 1))
 			if self.value.length() > 1: self.value = self.value.normalize()
@@ -382,7 +384,7 @@ class TextBox(UiObject):
 		self.text_changed = False
 		self.size_changed = False
 		
-		if inputs.mouse.K_LEFT == Key.CLICKED:
+		if inputs.mouse.K_LEFT == Key.PRESSED:
 			if self.hit_box.collidepoint(inputs.mouse.position):
 				self.selected = True
 				self.changed = True
@@ -400,32 +402,32 @@ class TextBox(UiObject):
 			self.text_changed = True
 		
 		if self.char > 0:
-			if inputs.K_BACKSPACE == Key.CLICKED:
+			if inputs.K_BACKSPACE == Key.PRESSED:
 				self.text = self.text[:self.char - 1] + self.text[self.char:]
 				self.char -= 1
 			elif inputs.K_BACKSPACE == Key.DOWN and self._timer_key_down > KEY_DOWN_TIME:
 				self.text = self.text[:self.char - 1] + self.text[self.char:]
 				self.char -= 1
 			
-			if inputs.K_LEFT == Key.CLICKED:
+			if inputs.K_LEFT == Key.PRESSED:
 				self.char -= 1
 			elif inputs.K_LEFT == Key.DOWN and self._timer_key_down > KEY_DOWN_TIME:
 				self.char -= 1
 		
 		if self.char < len(self.text):
-			if inputs.K_DELETE == Key.CLICKED:
+			if inputs.K_DELETE == Key.PRESSED:
 				self.text = self.text[:self.char] + self.text[self.char + 1:]
 				self.text_changed = True
 			elif inputs.K_DELETE == Key.DOWN and self._timer_key_down > KEY_DOWN_TIME:
 				self.text = self.text[:self.char] + self.text[self.char + 1:]
 				self.text_changed = True
 			
-			if inputs.K_RIGHT == Key.CLICKED:
+			if inputs.K_RIGHT == Key.PRESSED:
 				self.char += 1
 			elif inputs.K_RIGHT == Key.DOWN and self._timer_key_down > KEY_DOWN_TIME:
 				self.char += 1
 		
-		if Key.CLICKED in [inputs.K_BACKSPACE, inputs.K_DELETE, inputs.K_LEFT, inputs.K_RIGHT]:
+		if Key.PRESSED in [inputs.K_BACKSPACE, inputs.K_DELETE, inputs.K_LEFT, inputs.K_RIGHT]:
 			self._timer_bar_blink = 0
 			self._timer_key_down = 0
 			self.changed = True
@@ -442,7 +444,7 @@ class TextBox(UiObject):
 			self._timer_bar_blink = 0
 			self.changed = True
 		
-		if inputs.K_RETURN == Key.CLICKED:
+		if inputs.K_RETURN == Key.PRESSED:
 			self.unselect()
 		
 		if not self.fixed_size:
@@ -625,7 +627,7 @@ class MultiBox:
 			for text_box in line:
 				text_box.update(tick, inputs)
 		
-		if inputs.K_TAB == Key.CLICKED and self.selected_box:
+		if inputs.K_TAB == Key.PRESSED and self.selected_box:
 			if inputs.K_SHIFT == Key.DOWN and self.selected_box != (0, 0):
 				if self.selected_box[0] == 0:
 					self.selected_box = (self.array[0] - 1, self.selected_box[1] - 1)
@@ -714,7 +716,7 @@ class RollingList(UiObject):
 		if self.slider_color is None:
 			self.slider_color = darker(self.color, .7)
 		self.words = self.base_words
-
+		
 		font = SysFont(self.font, self.text_size)
 		width = max([font.size(word)[0] for word in self.words])
 		self.size = Vec2(width + SLIDER_WIDTH + 3 * MARGIN, self.height)
@@ -730,14 +732,14 @@ class RollingList(UiObject):
 		if not self.words: return
 		
 		if self.selected_word is not None:
-			if inputs.K_DOWN == Key.CLICKED:
+			if inputs.K_DOWN == Key.PRESSED:
 				self.selected_word += 1
 				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
 				if self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
 					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
 					self.slider_position = clip(self.slider_position, 0, self.course)
 				self.changed = True
-			elif inputs.K_UP == Key.CLICKED:
+			elif inputs.K_UP == Key.PRESSED:
 				self.selected_word -= 1
 				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
 				if self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
@@ -749,28 +751,28 @@ class RollingList(UiObject):
 		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
 		if not ((0 < position.x < size.x and 0 < position.y < size.y) or
 		        self.slider_selected or self.text_selected):
-			if inputs.mouse.K_LEFT == Key.CLICKED and self.selected_word is not None:
+			if inputs.mouse.K_LEFT == Key.PRESSED and self.selected_word is not None:
 				self.selected_word = None
 				self.changed = True
 			return
 		
-		if inputs.mouse.K_LEFT == Key.CLICKED:
+		if inputs.mouse.K_LEFT == Key.PRESSED:
 			if position.x < self.size.x - SLIDER_WIDTH - MARGIN:
 				self.selected_word = int((position.y + self.slider_position) / self.line_height)
 				self.text_selected = True
 			else:
-				self.slider_position = (position.y - self.slider_height / 2) \
+				self.slider_position = (position.y - self.slider_height / 2)\
 				                       / (size.y - self.slider_height) * self.course
 				self.slider_position = clip(self.slider_position, 0, self.course)
 				self.slider_selected = True
 			self.changed = True
-		elif inputs.mouse.K_LEFT == Key.UNCLICKED and (self.slider_selected or self.text_selected):
+		elif inputs.mouse.K_LEFT == Key.RELEASED and (self.slider_selected or self.text_selected):
 			self.slider_selected = False
 			self.text_selected = False
 			self.changed = True
 		
 		if self.slider_selected:
-			self.slider_position = (position.y - self.slider_height / 2) \
+			self.slider_position = (position.y - self.slider_height / 2)\
 			                       / (size.y - self.slider_height) * self.course
 			self.slider_position = clip(self.slider_position, 0, self.course)
 			self.changed = True

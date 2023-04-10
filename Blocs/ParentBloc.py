@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import Any
 from pygame import Color, Surface, Vector2 as Vec2
 
@@ -20,7 +20,7 @@ PAGE_DELTA: Vec2 = Vec2(2)
 CROSS_BT_SIZE: Vec2 = Vec2(TOP_BOX_SIZE.y - 2 * TOP_BOX_MARGIN)
 
 INFO_BT_COLOR: Color = hsv_color(50, 40, 100)
-COPY_BT_COLOR: Color = hsv_color(40, 10, 40)
+COPY_BT_COLOR: Color = hsv_color(40, 0, 60)
 CROSS_BT_COLOR: Color = hsv_color(10, 75, 100)
 
 SHADOW: Vec2 = Vec2(6, 8)

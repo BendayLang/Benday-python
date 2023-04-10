@@ -1,7 +1,6 @@
 from pygame import Vector2 as Vec2, draw
 from copy import deepcopy
 
-from AST import ASTNode, ASTNodeType
 from Blocs.MotherBloc import MotherBloc
 from Constantes import FONT_20
 from Containers import HoveredOn
@@ -18,7 +17,6 @@ from Blocs.SequenceBloc import SequenceBloc
 from Blocs.WhileBloc import WhileBloc
 from Blocs.VariableReturnBloc import VariableReturnBloc
 from Blocs.PrintBloc import PrintBloc
-from executor import exec_ast
 
 BLOCS = [VariableAssignmentBloc,
          IfElseBloc,
@@ -44,15 +42,14 @@ class BendayApp(App):
 		super().__init__("Dynamic UI", "grey 40", fps=120, quit_on_escape=False)
 		
 		self.ui_objects["bt_reset"].text = "CLEAR"
-		
-		self.ui_objects["bt_play"] = Button("tomato", Vec2(300, 50), Vec2(100, 40), text="PLAY")
+		self.ui_objects["bt_play"] = Button("tomato", Vec2(300, 25), Vec2(100, 40), text="PLAY")
 		
 		self.camera = Camera(self.window_size, zoom_speed=2 ** (1 / 8), vertical_scroll=True,
 		                     min_scale=1 / 2, max_scale=2,
 		                     left_limit=-2000, right_limit=2000, top_limit=-1000, bottom_limit=4000)
 		self.rot = 0
 		
-		self.blocs: list[tuple[Vec2, ParentBloc]] = [(Vec2(0, 0), MotherBloc())]
+		self.blocs: list[tuple[Vec2, ParentBloc]] = [(100 * Vec2(-2, -1), MotherBloc())]
 		self.selected_bloc: tuple[Vec2, ParentBloc] = None
 		
 		self.bloc_hovered = None
@@ -64,13 +61,13 @@ class BendayApp(App):
 		
 		self.info_timer: int = 0
 		
-		self.AST = self.generate_AST()
+		self.AST = self.blocs[0][1].as_ASTNode()
 		
 		self.variables: list[str] = ["bob"]
 	
 	def reset(self):
 		"""Vide la scène de tous les blocs."""
-		self.blocs = [(Vec2(0, 0), MotherBloc())]
+		self.blocs = [(100 * Vec2(-2, -1), MotherBloc())]
 		self.selected_bloc = None
 		self.text_box = None
 		self.text_box_bloc = None
@@ -80,7 +77,7 @@ class BendayApp(App):
 		
 		self.info_timer = 0
 		self.changed = True
-		self.AST = self.generate_AST()
+		self.AST = self.blocs[0][1].as_ASTNode()
 	
 	def manage_inputs(self, delta: int):
 		super().manage_inputs(delta)
@@ -102,12 +99,13 @@ class BendayApp(App):
 				self.text_box.text = self.rolling_list.selected_text
 				self.text_box.select()
 		
-		if self.inputs.K_RETURN == Key.CLICKED:
+		if self.inputs.K_RETURN == Key.PRESSED:
 			if self.rolling_list.selected_word is not None:
 				if self.text_box.text == self.rolling_list.selected_text:
 					if self.text_box_bloc is None:
 						self.add_a_bloc()
 					self.update_AST()
+					return
 				else:
 					self.text_box.text = self.rolling_list.selected_text
 					self.text_box.select()
@@ -117,10 +115,18 @@ class BendayApp(App):
 				self.text_box.text = self.rolling_list.selected_text
 				self.text_box.select()
 				self.changed = True
+			else:
+				print("unselect... why ?")
 		
-		if self.inputs.K_DOWN == Key.CLICKED:
-			if self.rolling_list.selected_word is None:
+		if self.rolling_list.selected_word is None:
+			if self.inputs.K_DOWN == Key.PRESSED:
 				self.rolling_list.selected_word = 0
+				self.text_box.text = self.rolling_list.selected_text
+				self.text_box.select()
+				self.changed = True
+			elif self.inputs.K_UP == Key.PRESSED:
+				self.rolling_list.selected_word = len(self.rolling_list.words) - 1
+				self.rolling_list.slider_position = self.rolling_list.course
 				self.text_box.text = self.rolling_list.selected_text
 				self.text_box.select()
 				self.changed = True
@@ -128,14 +134,16 @@ class BendayApp(App):
 	def update(self, delta):
 		super().update(delta)
 		
-		if self.inputs.K_ESCAPE == Key.CLICKED:
+		if self.inputs.K_ESCAPE == Key.PRESSED:
 			if self.text_box is None:
 				self.running = False
 				return
 			self.update_AST()
 		
-		if self.ui_objects["bt_play"].state == Key.UNCLICKED:
-			exec_ast(self.AST)
+		if self.ui_objects["bt_play"].is_released():
+			print()
+			print("EXECUTION :")
+			self.AST.execute()
 		
 		# Retourne si un ou des éléments d’UI ont été bougés.
 		if self.changed: return
@@ -144,14 +152,14 @@ class BendayApp(App):
 			self.camera.update(self.inputs)
 			if self.camera.changed: self.changed = True
 		
-		if self.inputs.mouse.K_RIGHT == Key.CLICKED:
+		if self.inputs.mouse.K_RIGHT == Key.PRESSED:
 			self.mouse_right_click()
 			self.changed = True
-		elif self.inputs.mouse.K_LEFT == Key.CLICKED:
+		elif self.inputs.mouse.K_LEFT == Key.PRESSED:
 			self.mouse_left_click()
 			self.mouse_hovered = None
 			self.changed = True
-		elif self.inputs.mouse.K_LEFT == Key.UNCLICKED and self.selected_bloc is not None:
+		elif self.inputs.mouse.K_LEFT == Key.RELEASED and self.selected_bloc is not None:
 			self.release_bloc()
 			self.bloc_hovered = None
 			self.changed = True
@@ -164,7 +172,7 @@ class BendayApp(App):
 		
 		if not ((self.inputs.mouse.delta and
 		         not (self.text_box is not None and self.text_box_bloc is None))
-		        or self.inputs.mouse.K_LEFT in [Key.CLICKED, Key.UNCLICKED]):
+		        or self.inputs.mouse.K_LEFT in [Key.PRESSED, Key.RELEASED]):
 			return
 		
 		if self.selected_bloc is None:
@@ -277,7 +285,9 @@ class BendayApp(App):
 		self.text_box = None
 		self.text_box_bloc = None
 		self.rolling_list = None
-		self.AST = self.generate_AST()
+		
+		print("generate AST")
+		self.AST = self.blocs[0][1].as_ASTNode()
 		self.changed = True
 	
 	def add_a_bloc(self):
@@ -310,8 +320,6 @@ class BendayApp(App):
 					self.blocs[bloc_id][1].update_size()
 				case _:
 					self.blocs.append((position - new_bloc.size / 2, new_bloc))
-		
-		self.update_AST()
 	
 	def release_bloc(self):
 		"""Relâche le bloc sélectionné."""
@@ -466,12 +474,3 @@ class BendayApp(App):
 		draw.circle(self.window_surface, "red", center, 5)
 		draw.line(self.window_surface, "red", center, center + Vec2(24, 0).rotate(self.rot), 3)
 		self.rot += 360 / n
-	
-	def generate_AST(self) -> ASTNode:
-		"""Retourne l’Abstract Syntax Tree du programme de la séquence parent."""
-		abstract_syntax_tree = ASTNode(ASTNodeType.SEQUENCE, [])
-		
-		for bloc in self.blocs[0][1].sequences[0].blocs:
-			abstract_syntax_tree.data.append(bloc.as_ASTNode())
-		
-		return abstract_syntax_tree

@@ -3,9 +3,9 @@ use crate::math::math_parser::Operation;
 #[derive(Debug, PartialEq)]
 pub enum TokenError {
     Uncomplete,
-    Unclosed,
     Other(String),
 }
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Int(isize),
@@ -23,6 +23,15 @@ pub fn tokenize_expression(expression: &str) -> Result<Vec<Token>, TokenError> {
             let mut token = String::new();
             let mut is_float = false;
             token.push(c);
+            if let Some(c) = chars.peek() {
+                if c == &'.' {
+                    is_float = true;
+                    token.push(chars.next().unwrap());
+                } else if !c.is_ascii_digit() {
+                    tokens.push(Token::Int(token.parse().unwrap()));
+                    continue;
+                }
+            }
             while let Some(c) = chars.next() {
                 if c == '.' {
                     if is_float {
@@ -123,13 +132,25 @@ pub fn tokenize_expression(expression: &str) -> Result<Vec<Token>, TokenError> {
 }
 
 #[cfg(test)]
-mod math_tokenizer_tests {
+mod tests {
     use super::*;
 
     #[test]
-    fn basic_working() {
+    fn simple_addition() {
         assert_eq!(
             tokenize_expression("1 + 1"),
+            Ok(vec![
+                Token::Int(1),
+                Token::Operation(Operation::Addition),
+                Token::Int(1)
+            ])
+        );
+    }
+
+    #[test]
+    fn stick_simple_addition() {
+        assert_eq!(
+            tokenize_expression("1+1"),
             Ok(vec![
                 Token::Int(1),
                 Token::Operation(Operation::Addition),

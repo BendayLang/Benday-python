@@ -26,10 +26,8 @@ pub fn exec_ast(ast: &ASTNode, variables: &mut HashMap<String, ReturnValue>) -> 
                 }
             }
             let mut iteration = 0;
-            while iteration != user_prefs::MAX_ITERATION {
-                if !get_bool(exec_ast(condition, variables)) {
-                    break;
-                }
+            while iteration != user_prefs::MAX_ITERATION && get_bool(exec_ast(condition, variables))
+            {
                 let return_value = exec_ast(&ASTNode::Sequence(sequence.clone()), variables);
                 if return_value != ReturnValue::None {
                     return return_value;
@@ -63,12 +61,13 @@ pub fn exec_ast(ast: &ASTNode, variables: &mut HashMap<String, ReturnValue>) -> 
             return ReturnValue::None;
         }
         ASTNode::Value(value) => {
-            if let Some(_) = value.find("{") {
-                todo!("({value} {:?})", variables);
-            }
-            let value = match expand_variables(value, variables) {
-                Ok(v) => v.to_string(),
-                Err(()) => todo!("erreur expand_variables, comment reagir ?"),
+            let value: String = if let Some(_) = value.find("{") {
+                match expand_variables(&value, variables) {
+                    Ok(v) => v.to_string(),
+                    Err(()) => todo!("erreur expand_variables, comment reagir ?"),
+                }
+            } else {
+                value.to_string()
             };
             if math::is_math_parsable(&value) {
                 return math::math_expression(&value).unwrap();
@@ -97,15 +96,15 @@ pub fn exec_ast(ast: &ASTNode, variables: &mut HashMap<String, ReturnValue>) -> 
 
 fn get_bool(return_value: ReturnValue) -> bool {
     match return_value {
+        ReturnValue::Bool(val) => val,
         ReturnValue::None => false,
         ReturnValue::String_(val) => todo!("error should return a bool, not a string ({val})"),
-        ReturnValue::Bool(val) => val,
         ReturnValue::Int(val) => val != 0,
         ReturnValue::Float(val) => val != 0.0,
-    };
-    true
+    }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum ASTNode {
     Sequence(Vec<ASTNode>),
@@ -120,7 +119,7 @@ pub enum ASTNode {
 pub enum ReturnValue {
     String_(String),
     Int(isize),
-    Float(f32),
+    Float(f64),
     Bool(bool),
     None,
 }
@@ -133,7 +132,6 @@ impl fmt::Display for ReturnValue {
             ReturnValue::Float(val) => write!(f, "{val}"),
             ReturnValue::Bool(val) => write!(f, "{val}"),
             ReturnValue::None => write!(f, "None"),
-            _ => todo!("formater"),
         }
     }
 }
@@ -164,11 +162,11 @@ pub struct Function {
 mod test {
     use super::*;
     #[test]
-    fn test_1() {
+    fn ast_executor_test() {
         let ast = ASTNode::Sequence(vec![
             ASTNode::VariableAssignment(
                 "age de Bob".to_string(),
-                Box::new(ASTNode::Value("5".to_string())),
+                Box::new(ASTNode::Value("6".to_string())),
             ),
             ASTNode::While(
                 false,
@@ -181,7 +179,9 @@ mod test {
                     ASTNode::FunctionCall(Function {
                         name: "print".to_string(),
                         is_builtin: true,
-                        argv: vec![ASTNode::Value("{age de Bob}".to_string())],
+                        argv: vec![ASTNode::Value(
+                            "Bravo Bob ! tu as maintenant {age de Bob} ans !".to_string(),
+                        )],
                     }),
                 ],
             ),

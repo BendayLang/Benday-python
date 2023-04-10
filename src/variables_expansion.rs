@@ -24,7 +24,7 @@ pub fn expand_variables(
     if !variables.contains_key(variable_name) {
         return Err(());
     }
-    let result = expression[0..start].to_string() 
+    let result = expression[0..start].to_string()
         + &variables.get(variable_name).unwrap().to_string()
         + &expression[end + 1..];
     return expand_variables(&result, variables);
@@ -47,6 +47,17 @@ mod expand_variables_test {
         assert_eq!(
             res,
             Ok("salut michelle, votre nom c'est bien michelle n'est-ce pas ??".to_string())
+        );
+    }
+
+    #[test]
+    fn age_de_bob() {
+        assert_eq!(
+            expand_variables(
+                "{age de Bob} > 12",
+                &HashMap::from([("age de Bob".to_string(), ReturnValue::Int(7)),])
+            ),
+            Ok("7 > 12".to_string())
         );
     }
 

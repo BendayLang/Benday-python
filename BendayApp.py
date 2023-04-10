@@ -1,4 +1,5 @@
 from pygame import Vector2 as Vec2, draw
+from copy import deepcopy
 
 from AST import ASTNode, ASTNodeType
 from Blocs.MotherBloc import MotherBloc
@@ -26,8 +27,7 @@ BLOCS = [VariableAssignmentBloc,
          VariableReturnBloc,
          PrintBloc]
 
-BLOCS_NAMES = [bloc.__name__.split("Bloc")[0]
-               for bloc in BLOCS]
+BLOCS_NAMES = [bloc.__name__.split("Bloc")[0] for bloc in BLOCS]
 
 BLOC_CHOICE_SIZE: Vec2 = Vec2(200, 30)
 ROLLING_LIST_HEIGHT: int = 120
@@ -70,7 +70,7 @@ class BendayApp(App):
 	
 	def reset(self):
 		"""Vide la scène de tous les blocs."""
-		self.blocs = [(Vec2(0, 0), SequenceBloc())]
+		self.blocs = [(Vec2(0, 0), MotherBloc())]
 		self.selected_bloc = None
 		self.text_box = None
 		self.text_box_bloc = None
@@ -222,6 +222,12 @@ class BendayApp(App):
 				self.info_timer = INFO_TIME
 				self.changed = True
 			
+			case HoveredOn.COPY_BT:
+				hovered_bloc = bloc.get_bloc(hierarchy)
+				self.selected_bloc = position + bloc.get_position(hierarchy), deepcopy(hovered_bloc)
+				hovered_bloc.hovered_on = HoveredOn.NONE, None
+				self.changed = True
+			
 			case HoveredOn.CROSS_BT:
 				container = bloc.get_container(hierarchy)
 				
@@ -245,8 +251,8 @@ class BendayApp(App):
 				
 				self.rolling_list = RollingList(
 				  self.camera.world2screen(
-				    position + bloc.get_position(hierarchy) +
-				    hovered_bloc.slot_position(hovered_on[1]) + Vec2(0, self.text_box.size.y)),
+					position + bloc.get_position(hierarchy) +
+					hovered_bloc.slot_position(hovered_on[1]) + Vec2(0, self.text_box.size.y)),
 				  ROLLING_LIST_HEIGHT, self.variables, corner_radius=3)
 			
 			case HoveredOn.OTHER:

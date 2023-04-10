@@ -1,5 +1,6 @@
 """Ce programme python contient des éléments d’interface utilisateur."""
 from colorsys import rgb_to_hsv, hsv_to_rgb
+from copy import copy
 from dataclasses import dataclass, field
 
 from pygame import SRCALPHA, Surface, Vector2 as Vec2, Color, Rect, draw, transform
@@ -369,6 +370,9 @@ class TextBox(UiObject):
 	
 	def __repr__(self):
 		return f"TextBox({self.text})"
+	
+	def __deepcopy__(self, memodict=None):
+		return copy(self)
 	
 	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour la boîte de texte."""

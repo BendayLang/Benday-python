@@ -21,3 +21,9 @@ class ASTNode:
 	def __repr__(self):
 		data = f"'{self.data}'" if type(self.data) is str else self.data
 		return f"ASTNode(type=ASTNodeType.{self.type.name}, data={data})"
+
+
+@dataclass(slots=True)
+class ASTNodeVariableAssignment:
+	name: str
+	value: ASTNode

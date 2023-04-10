@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pygame import Color, Surface, Vector2 as Vec2
 
-from AST import ASTNode, ASTNodeType
+from AST import ASTNode, ASTNodeType, ASTNodeVariableAssignment
 from Constantes import FONT_20, INNER_MARGIN, MARGIN
 from Blocs.ParentBloc import ParentBloc
 from MyPygameLibrary.Camera import Camera
@@ -17,12 +17,6 @@ NAME_BOX_SIZE: Vec2 = Vec2(60, 25)
 
 
 @dataclass(slots=True)
-class ASTNodeVariableAssignment:
-	name: str
-	value: ASTNode
-
-
-@dataclass
 class VariableAssignmentBloc(ParentBloc):
 	"""Bloc d’assignation de variable - la variable nommée sur le côté gauche du bloc
 	prend la valeur de ce que contient le côté droit."""
@@ -34,7 +28,7 @@ class VariableAssignmentBloc(ParentBloc):
 		  change_color(COLOR, s_fonc=lambda s: s * .1, v_fonc=lambda _: 1),
 		  change_color(COLOR, s_fonc=lambda s: s * .4),
 		  fixed_size=False, default_text="none", text_size=18, corner_radius=2, border=0)
-		super().__init__(COLOR, 1, 0, ["name_box"])
+		super(VariableAssignmentBloc, self).__init__(COLOR, 1, 0, ["name_box"])
 	
 	def __repr__(self):
 		name_text = self.name_box.text if self.name_box.text else "-"

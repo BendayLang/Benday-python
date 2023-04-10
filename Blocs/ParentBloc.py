@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any
 from pygame import Color, Surface, Vector2 as Vec2
 

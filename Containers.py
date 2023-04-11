@@ -242,12 +242,13 @@ class Sequence:
 		return hierarchy_ratio
 	
 	def hovered_gap(self, point: Vec2) -> int:
-		"""Retourne l’id du gap survolé par un point donné."""
+		"""Retourne l’id du gap survolé par un point donné (pour savoir où ajouter un nouveau bloc)."""
 		if not self.blocs: return 0
 		
 		for bloc_id, bloc in enumerate(self.blocs):
-			if point.y < self.bloc_position(bloc_id).y:
+			if point.y < self.bloc_position(bloc_id).y + self.blocs[bloc_id].size.y / 2:
 				return bloc_id
+		
 		return len(self.blocs)
 	
 	def is_hovered_where(self) -> int:
@@ -260,9 +261,9 @@ class Sequence:
 		"""Enlève le bloc donné de la séquence."""
 		self.blocs.pop(bloc_id)
 	
-	def set_hovered(self, gap_id: int, size: Vec2):
+	def set_hovered(self, gap_id: int, bloc: Vec2 | Any):
 		"""Ajoute un espace à une position donnée."""
-		self.blocs.insert(gap_id, size)
+		self.blocs.insert(gap_id, bloc)
 	
 	def set_bloc(self, gap_id: int, bloc: Any):
 		"""Ajoute un bloc donné à une position donnée dans la séquence."""

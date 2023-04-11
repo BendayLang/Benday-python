@@ -374,7 +374,9 @@ class TextBox(UiObject):
 		return f"TextBox({self.text})"
 	
 	def __deepcopy__(self, memodict=None):
-		return copy(self)
+		the_copy = copy(self)
+		the_copy.size = self.size.copy()
+		return the_copy
 	
 	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour la boîte de texte."""

@@ -52,17 +52,18 @@ class ASTNodeSequence(ASTNode):
 class ASTNodeIfElse(ASTNode):
 	if_condition: ASTNode
 	if_sequence: ASTNodeSequence
-	elifs: list[tuple[ASTNode, ASTNodeSequence]] | None
+	elifs: list[tuple[ASTNode, ASTNodeSequence]]
 	else_sequence: ASTNodeSequence | None
 	
 	def execute(self) -> str | float | int | bool | None:
 		if self.if_condition.execute():
 			return self.if_sequence.execute()
-		elif self.elifs is not None:
-			for condition, sequence in self.elifs:
-				if condition.execute():
-					return sequence.execute()
-		elif self.else_sequence is not None:
+		
+		for condition, sequence in self.elifs:
+			if condition.execute():
+				return sequence.execute()
+		
+		if self.else_sequence is not None:
 			return self.else_sequence.execute()
 
 

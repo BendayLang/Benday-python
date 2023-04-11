@@ -182,8 +182,7 @@ class IfElseBloc(ParentBloc):
 	
 	def as_ASTNode(self) -> ASTNodeIfElse:
 		elifs = [(slot.as_AST(), sequence.as_AST())
-		         for slot, sequence in zip(self.slots[1:], self.sequences[1:])]\
-			if len(self.slots) > 1 else None
+		         for slot, sequence in zip(self.slots[1:], self.sequences[1:])]
 		else_sequence = self.sequences[-1].as_AST() if self.is_else else None
 		
 		return ASTNodeIfElse(self.slots[0].as_AST(), self.sequences[0].as_AST(), elifs, else_sequence)

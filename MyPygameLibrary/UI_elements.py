@@ -252,7 +252,7 @@ DOT_RADIUS = 0.3
 
 
 class CircularPad:
-	"""Objet graphique d'interface utilisateur récupérant un vecteur2."""
+	"""Objet graphique d’interface utilisateur récupérant un Vecteur2."""
 	
 	def __init__(self, position: Vec2, radius: int, color: Color,
 	             dot_color: Color, border: int = 3, visible: bool = True, **kwargs):
@@ -731,7 +731,15 @@ class RollingList(UiObject):
 		self.changed = False
 		if not self.words: return
 		
-		if self.selected_word is not None:
+		if self.selected_word is None:
+			if inputs.K_DOWN == Key.PRESSED:
+				self.selected_word = 0
+				self.changed = True
+			elif inputs.K_UP == Key.PRESSED:
+				self.selected_word = len(self.words) - 1
+				self.slider_position = self.course
+				self.changed = True
+		else:
 			if inputs.K_DOWN == Key.PRESSED:
 				self.selected_word += 1
 				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)

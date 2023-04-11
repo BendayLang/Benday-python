@@ -81,18 +81,33 @@ class BendayApp(App):
 	
 	def manage_inputs(self, delta: int):
 		super().manage_inputs(delta)
-		if self.text_box is None: return
 		
+		if self.ui_objects["bt_play"].is_released():
+			print()
+			print("EXECUTION :")
+			self.AST.execute()
+		
+		if self.text_box is None:
+			if self.inputs.K_ESCAPE == Key.PRESSED: self.running = False
+			return
+		
+		if self.inputs.K_ESCAPE == Key.PRESSED:
+			self.unselect_text_box()
+			self.changed = True
+			return
+		
+		# Text box
 		self.text_box.update(delta, self.inputs)
 		if self.text_box.changed:
 			self.changed = True
 		if self.text_box.size_changed and self.text_box_bloc is not None:
 			self.blocs[self.text_box_bloc][1].update_size()
 		
-		self.rolling_list.update(delta, self.inputs)
 		if self.text_box.text_changed:
 			self.rolling_list.update_words(self.text_box.text)
 		
+		# Rolling list
+		self.rolling_list.update(delta, self.inputs)
 		if self.rolling_list.changed:
 			self.changed = True
 			if self.rolling_list.selected_text is not None:
@@ -104,7 +119,7 @@ class BendayApp(App):
 				if self.text_box.text == self.rolling_list.selected_text:
 					if self.text_box_bloc is None:
 						self.add_a_bloc()
-					self.update_AST()
+					self.unselect_text_box()
 					return
 				else:
 					self.text_box.text = self.rolling_list.selected_text
@@ -115,35 +130,13 @@ class BendayApp(App):
 				self.text_box.text = self.rolling_list.selected_text
 				self.text_box.select()
 				self.changed = True
+			elif self.text_box_bloc is not None:
+				self.unselect_text_box()
 			else:
-				print("unselect... why ?")
-		
-		if self.rolling_list.selected_word is None:
-			if self.inputs.K_DOWN == Key.PRESSED:
-				self.rolling_list.selected_word = 0
-				self.text_box.text = self.rolling_list.selected_text
 				self.text_box.select()
-				self.changed = True
-			elif self.inputs.K_UP == Key.PRESSED:
-				self.rolling_list.selected_word = len(self.rolling_list.words) - 1
-				self.rolling_list.slider_position = self.rolling_list.course
-				self.text_box.text = self.rolling_list.selected_text
-				self.text_box.select()
-				self.changed = True
 	
 	def update(self, delta):
 		super().update(delta)
-		
-		if self.inputs.K_ESCAPE == Key.PRESSED:
-			if self.text_box is None:
-				self.running = False
-				return
-			self.update_AST()
-		
-		if self.ui_objects["bt_play"].is_released():
-			print()
-			print("EXECUTION :")
-			self.AST.execute()
 		
 		# Retourne si un ou des éléments d’UI ont été bougés.
 		if self.changed: return
@@ -185,7 +178,7 @@ class BendayApp(App):
 	
 	def mouse_right_click(self):
 		"""Gère le clic droit de la souris."""
-		self.update_AST()
+		self.unselect_text_box()
 		
 		position = self.inputs.mouse.position - BLOC_CHOICE_SIZE / 2
 		self.text_box = TextBox(
@@ -198,18 +191,17 @@ class BendayApp(App):
 	
 	def mouse_left_click(self):
 		"""Gère le clic gauche de la souris."""
-		self.update_AST()
-		
-		if self.mouse_hovered is None: return
-		if self.mouse_hovered == (0, [], (HoveredOn.SEQUENCE, 0)): return
+		if self.mouse_hovered in [None, (0, [], (HoveredOn.SEQUENCE, 0))]:
+			self.unselect_text_box()
+			return
 		
 		bloc_id, hierarchy, hovered_on = self.mouse_hovered
 		position, bloc = self.blocs[bloc_id]
 		
 		match hovered_on[0]:
 			case HoveredOn.SELF | HoveredOn.SEQUENCE:
+				self.unselect_text_box()
 				container = bloc.get_container(hierarchy)
-				
 				if container is None:
 					removed_bloc = self.blocs.pop(bloc_id)
 				elif type(container) is tuple:  # Séquence
@@ -222,23 +214,20 @@ class BendayApp(App):
 					removed_bloc = position + bloc.get_position(hierarchy), container.bloc
 					container.set_empty(self.camera)
 					bloc.update_size()
-				
 				self.selected_bloc = removed_bloc
-				self.update_AST()
 			
 			case HoveredOn.INFO_BT:
+				self.unselect_text_box()
 				self.info_timer = INFO_TIME
-				self.changed = True
 			
 			case HoveredOn.COPY_BT:
+				self.unselect_text_box()
 				hovered_bloc = bloc.get_bloc(hierarchy)
 				self.selected_bloc = position + bloc.get_position(hierarchy), deepcopy(hovered_bloc)
 				hovered_bloc.hovered_on = HoveredOn.NONE, None
-				self.changed = True
 			
 			case HoveredOn.CROSS_BT:
 				container = bloc.get_container(hierarchy)
-				
 				if container is None:
 					self.blocs.pop(bloc_id)
 				elif type(container) is tuple:  # Séquence
@@ -248,13 +237,15 @@ class BendayApp(App):
 				else:  # Slot
 					container.set_empty(self.camera)
 					bloc.update_size()
-				
-				self.update_AST()
+				self.unselect_text_box()
 			
 			case HoveredOn.SLOT:
 				hovered_bloc = bloc.get_bloc(hierarchy)
-				hovered_bloc.slots[hovered_on[1]].text_box.select()
-				self.text_box = hovered_bloc.slots[hovered_on[1]].text_box
+				hovered_text_box = hovered_bloc.slots[hovered_on[1]].text_box
+				if self.text_box == hovered_text_box: return
+				self.unselect_text_box()
+				self.text_box = hovered_text_box
+				self.text_box.select()
 				self.text_box_bloc = bloc_id
 				
 				self.rolling_list = RollingList(
@@ -265,30 +256,34 @@ class BendayApp(App):
 			
 			case HoveredOn.OTHER:
 				hovered_bloc = bloc.get_bloc(hierarchy)
-				if hovered_bloc.button_function(hovered_on[1]):
-					bloc.update_size()
-					self.update_AST()
-				
 				if hovered_bloc.buttons[hovered_on[1]] == "name_box":
+					if self.text_box == hovered_bloc.name_box: return
+					self.unselect_text_box()
 					self.text_box = hovered_bloc.name_box
+					self.text_box.select()
 					self.text_box_bloc = bloc_id
-					
 					self.rolling_list = RollingList(
 					  self.camera.world2screen(
 						position + bloc.get_position(hierarchy) +
 						hovered_bloc.button_position(hovered_on[1]) + Vec2(0, self.text_box.size.y)),
 					  ROLLING_LIST_HEIGHT, self.variables, corner_radius=3)
+				elif hovered_bloc.button_function(hovered_on[1]):
+					bloc.update_size()
+					self.update_AST()
 	
-	def update_AST(self):
+	def unselect_text_box(self):
+		"""Désélectionne la boîte de texte actuellement sélectionnée."""
 		if self.text_box is not None:
 			self.text_box.unselect()
+			if self.text_box_bloc is not None:
+				self.update_AST()
 		self.text_box = None
 		self.text_box_bloc = None
 		self.rolling_list = None
-		
-		print("generate AST")
+	
+	def update_AST(self):
+		"""Met à jour l’Abstract Syntax Tree selon la disposition des blocs actuels."""
 		self.AST = self.blocs[0][1].as_ASTNode()
-		self.changed = True
 	
 	def add_a_bloc(self):
 		try:
@@ -320,6 +315,8 @@ class BendayApp(App):
 					self.blocs[bloc_id][1].update_size()
 				case _:
 					self.blocs.append((position - new_bloc.size / 2, new_bloc))
+		
+		self.update_AST()
 	
 	def release_bloc(self):
 		"""Relâche le bloc sélectionné."""

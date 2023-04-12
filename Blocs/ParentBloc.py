@@ -135,7 +135,8 @@ class ParentBloc:
 	
 	def collide(self, point: Vec2) -> bool:
 		"""Retourne si le point donné (en référence au bloc) est dans le bloc."""
-		if not (0 <= point.x <= self.size.x and -TOP_BOX_SIZE.y <= point.y <= self.size.y): return False
+		if not (0 <= point.x <= self.size.x and -TOP_BOX_SIZE.y <= point.y <= self.size.y):
+			return False
 		
 		if point.y >= 0: return True
 		

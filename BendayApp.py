@@ -27,7 +27,7 @@ BLOCS = [VariableAssignmentBloc,
 
 BLOCS_NAMES = [bloc.__name__.split("Bloc")[0] for bloc in BLOCS]
 
-BLOC_CHOICE_SIZE: Vec2 = Vec2(200, 30)
+BLOC_CHOICE_SIZE: Vec2 = Vec2(160, 30)
 ROLLING_LIST_HEIGHT: int = 120
 
 INFO_TIME: int = 800

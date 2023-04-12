@@ -744,16 +744,20 @@ class RollingList(UiObject):
 		else:
 			if inputs.K_DOWN == Key.PRESSED:
 				self.selected_word += 1
-				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
-				if self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
+				if self.selected_word > len(self.words) - 1:
+					self.selected_word = 0
+					self.slider_position = 0
+				elif self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
 					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
 					self.slider_position = clip(self.slider_position, 0, self.course)
 				self.changed = True
 			elif inputs.K_UP == Key.PRESSED:
 				self.selected_word -= 1
-				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
-				if self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
-					self.slider_position = (self.selected_word + 3) * self.line_height - self.size.y
+				if self.selected_word < 0:
+					self.selected_word = len(self.words) - 1
+					self.slider_position = self.course
+				elif self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
+					self.slider_position = (self.selected_word + 3.8) * self.line_height - self.size.y
 					self.slider_position = clip(self.slider_position, 0, self.course)
 				self.changed = True
 		
@@ -804,21 +808,22 @@ class RollingList(UiObject):
 		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
 		box_surface = Surface(size, SRCALPHA)
 		draw.rect(box_surface, self.color, ((0, 0), size), 0, self.corner_radius)
-		draw.rect(box_surface, self.border_color, ((0, 0), size), self.border, self.corner_radius)
-		
-		box_surface.blit(self.text_surface, (MARGIN, -self.slider_position))
 		
 		width = size.x - 2 * MARGIN - SLIDER_WIDTH
+		if self.selected_word is not None:
+			draw.rect(box_surface, darker(self.color, .7),
+			          ((1, self.selected_word * self.line_height - self.slider_position),
+			           (width, self.line_height)))
+		
+		draw.rect(box_surface, self.border_color, ((0, 0), size), self.border, self.corner_radius)
+		
 		for i, text in enumerate(self.words):
 			height = i * self.line_height - self.slider_position
 			draw.line(box_surface, self.text_color, (0, height), (width, height))
 		
-		if self.selected_word is not None:
-			selected_surface = Surface((width, self.line_height))
-			selected_surface.set_alpha(100)
-			box_surface.blit(selected_surface,
-			                 (1, self.selected_word * self.line_height - self.slider_position))
+		box_surface.blit(self.text_surface, (MARGIN, -self.slider_position))
 		
+		# Slider
 		if self.text_surface.get_height() > self.size.y:
 			color = darker(self.slider_color, .7) if self.slider_selected else self.slider_color
 			draw.rect(box_surface, color, (Vec2(width, self.slider_position) + Vec2(MARGIN),

@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from pygame import Color, Surface, Vector2 as Vec2
 
 from AST import ASTNodeSequence
-from Constantes import MARGIN, RADIUS
+from Constantes import MARGIN, MOTHER_SIZE, RADIUS
 from Blocs.ParentBloc import ParentBloc, TOP_BOX_SIZE
-from Containers import HoveredOn
+from Blocs.Containers import HoveredOn, SEQUENCE_MARGIN, Sequence
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.UI_elements import hsv_color
 from MyPygameLibrary.World import draw_rect
@@ -13,13 +13,31 @@ from MyPygameLibrary.World import draw_rect
 COLOR: Color = hsv_color(180, 10, 100)
 
 
-@dataclass
+@dataclass(slots=True)
+class MotherSequence(Sequence):
+	"""Séquence mère du programme."""
+	def __init__(self):
+		self.color = COLOR
+		self.blocs = []
+	
+	@property
+	def size(self) -> Vec2:
+		if not self.blocs: return MOTHER_SIZE - Vec2(2 * MARGIN)
+		width = max(max([self.bloc_size(i).x for i in range(len(self.blocs))])
+		            + SEQUENCE_MARGIN, MOTHER_SIZE.x - 2 * MARGIN)
+		height = max(sum([self.bloc_size(i).y for i in range(len(self.blocs))])
+		             + len(self.blocs) * SEQUENCE_MARGIN, MOTHER_SIZE.y - 2 * MARGIN)
+		return Vec2(width, height)
+
+
+@dataclass(slots=True)
 class MotherBloc(ParentBloc):
 	"""Bloc de logique - si la variable booléenne sur le côté gauche du bloc est vraie,
 	la séquence du haut est exécutée, sinon la séquence du haut est exécutée."""
 	
 	def __init__(self):
-		super().__init__(COLOR, 0, 1)
+		super(MotherBloc, self).__init__(
+		  COLOR, sequences=[MotherSequence()])
 	
 	def __repr__(self):
 		return f"Mother( {self.sequences[0]} )"
@@ -32,7 +50,8 @@ class MotherBloc(ParentBloc):
 	
 	def collide(self, point: Vec2) -> bool:
 		"""Retourne si le point donné (en référence au bloc) est dans le bloc."""
-		if not (0 <= point.x <= self.size.x and -TOP_BOX_SIZE.y <= point.y <= self.size.y): return False
+		if not (0 <= point.x <= self.size.x and -TOP_BOX_SIZE.y <= point.y <= self.size.y):
+			return False
 		
 		if point.y >= 0: return True
 		

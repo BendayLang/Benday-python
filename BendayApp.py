@@ -2,8 +2,8 @@ from pygame import Vector2 as Vec2, draw
 from copy import deepcopy
 
 from Blocs.MotherBloc import MotherBloc
-from Constantes import FONT_20
-from Containers import HoveredOn
+from Constantes import FONT_20, MOTHER_SIZE
+from Blocs.Containers import HoveredOn
 
 from MyPygameLibrary.App import App
 from MyPygameLibrary.Camera import Camera
@@ -15,14 +15,14 @@ from Blocs.IfElseBloc import IfElseBloc
 from Blocs.VariableAssignmentBloc import VariableAssignmentBloc
 from Blocs.SequenceBloc import SequenceBloc
 from Blocs.WhileBloc import WhileBloc
-from Blocs.VariableReturnBloc import VariableReturnBloc
+from Blocs.ReturnBloc import ReturnBloc
 from Blocs.PrintBloc import PrintBloc
 
 BLOCS = [VariableAssignmentBloc,
          IfElseBloc,
          WhileBloc,
          SequenceBloc,
-         VariableReturnBloc,
+         ReturnBloc,
          PrintBloc]
 
 BLOCS_NAMES = [bloc.__name__.split("Bloc")[0] for bloc in BLOCS]
@@ -47,9 +47,8 @@ class BendayApp(App):
 		self.camera = Camera(self.window_size, zoom_speed=2 ** (1 / 8), vertical_scroll=True,
 		                     min_scale=1 / 2, max_scale=2,
 		                     left_limit=-2000, right_limit=2000, top_limit=-1000, bottom_limit=4000)
-		self.rot = 0
 		
-		self.blocs: list[tuple[Vec2, ParentBloc]] = [(100 * Vec2(-2, -1), MotherBloc())]
+		self.blocs: list[tuple[Vec2, ParentBloc]] = [(-MOTHER_SIZE / 2, MotherBloc())]
 		self.selected_bloc: tuple[Vec2, ParentBloc] = None
 		
 		self.bloc_hovered = None
@@ -67,7 +66,7 @@ class BendayApp(App):
 	
 	def reset(self):
 		"""Vide la scène de tous les blocs."""
-		self.blocs = [(100 * Vec2(-2, -1), MotherBloc())]
+		self.blocs = [(-MOTHER_SIZE / 2, MotherBloc())]
 		self.selected_bloc = None
 		self.text_box = None
 		self.text_box_bloc = None
@@ -155,15 +154,10 @@ class BendayApp(App):
 		
 		if self.inputs.mouse.K_RIGHT == Key.PRESSED:
 			self.mouse_right_click()
-			self.changed = True
 		elif self.inputs.mouse.K_LEFT == Key.PRESSED:
 			self.mouse_left_click()
-			self.mouse_hovered = None
-			self.changed = True
-		elif self.inputs.mouse.K_LEFT == Key.RELEASED and self.selected_bloc is not None:
+		elif self.inputs.mouse.K_LEFT == Key.RELEASED:
 			self.release_bloc()
-			self.bloc_hovered = None
-			self.changed = True
 		
 		if self.mouse_hovered is not None:
 			if self.mouse_hovered[2] == (HoveredOn.INFO_BT, None):
@@ -196,6 +190,8 @@ class BendayApp(App):
 		self.rolling_list = RollingList(
 		  position + Vec2(0, BLOC_CHOICE_SIZE.y - 1), ROLLING_LIST_HEIGHT,
 		  BLOCS_NAMES, corner_radius=3)
+		
+		self.changed = True
 	
 	def mouse_left_click(self):
 		"""Gère le clic gauche de la souris."""
@@ -280,6 +276,9 @@ class BendayApp(App):
 				elif hovered_bloc.button_function(hovered_on[1]):
 					bloc.update_size()
 					self.update_AST()
+		
+		self.mouse_hovered = None
+		self.changed = True
 	
 	def unselect_text_box(self):
 		"""Désélectionne la boîte de texte actuellement sélectionnée."""
@@ -330,6 +329,8 @@ class BendayApp(App):
 	
 	def release_bloc(self):
 		"""Relâche le bloc sélectionné."""
+		if self.selected_bloc is None: return
+		
 		self.selected_bloc[1].hovered_on = HoveredOn.NONE, None
 		
 		if self.bloc_hovered is None:
@@ -349,15 +350,16 @@ class BendayApp(App):
 			bloc.update_size()
 		
 		self.selected_bloc = None
+		self.bloc_hovered = None
 		self.update_AST()
+		self.changed = True
 	
 	def mouse_hover(self):
 		"""Attribue quel bloc est survolé par la souris."""
 		new_mouse_hovered = self.get_mouse_hover()
-		if new_mouse_hovered == self.mouse_hovered: return
-		
 		if new_mouse_hovered == (0, [], (HoveredOn.SELF, None)):
 			new_mouse_hovered = (0, [], (HoveredOn.SEQUENCE, 0))
+		if new_mouse_hovered == self.mouse_hovered: return
 		
 		if self.mouse_hovered is not None:
 			bloc_id, hierarchy, _ = self.mouse_hovered
@@ -472,14 +474,3 @@ class BendayApp(App):
 			draw_text(self.window_surface, line,
 			          info_position + (i + .5) * Vec2(0, FONT_20.get_height()),
 			          20, align="left", bold=i == 0)
-	
-	def draw_clock(self):
-		n = 12
-		center = Vec2(100, 110)
-		draw.circle(self.window_surface, "light grey", center, 30)
-		[draw.line(self.window_surface, "black", center + Vec2(22, 0).rotate(a * 360 / n),
-		           center + Vec2(28, 0).rotate(a * 360 / n), 2) for a in range(n)]
-		draw.circle(self.window_surface, "black", center, 30, 2)
-		draw.circle(self.window_surface, "red", center, 5)
-		draw.line(self.window_surface, "red", center, center + Vec2(24, 0).rotate(self.rot), 3)
-		self.rot += 360 / n

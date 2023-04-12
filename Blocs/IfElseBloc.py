@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from pygame import Color, Surface, Vector2 as Vec2
 
 from AST import ASTNodeIfElse
-from Constantes import FONT_20, INNER_MARGIN, MARGIN, SMALL_RADIUS
+from Constantes import BT_SIZE, FONT_20, INNER_MARGIN, MARGIN, SMALL_RADIUS
 from Blocs.ParentBloc import ParentBloc
-from Containers import Sequence, Slot
+from Blocs.Containers import Sequence, Slot
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.UI_elements import darker, draw_text, hsv_color
 from MyPygameLibrary.World import draw_line, draw_rect
@@ -20,8 +20,6 @@ TEXT_ELIF_SIZE: Vec2 = Vec2(FONT_20.size(TEXT_ELIF))
 TEXT_ELSE: str = "ELSE"
 TEXT_ELSE_SIZE: Vec2 = Vec2(FONT_20.size(TEXT_ELSE))
 
-BT_SIZE: Vec2 = Vec2(16)
-
 IF_COLOR: Color = hsv_color(100, 30, 90)
 ELIF_COLOR: Color = hsv_color(30, 30, 90)
 ELSE_COLOR: Color = hsv_color(0, 30, 90)
@@ -36,8 +34,7 @@ class IfElseBloc(ParentBloc):
 	def __init__(self):
 		self.is_else = False
 		super(IfElseBloc, self).__init__(
-		  COLOR,
-		  [Slot(COLOR, "False")],
+		  COLOR, ["False"],
 		  [Sequence(IF_COLOR)],
 		  ["elif_add", "else"])
 	

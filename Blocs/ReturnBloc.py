@@ -11,11 +11,11 @@ COLOR: Color = hsv_color(180, 40, 90)
 
 
 @dataclass(slots=True)
-class VariableReturnBloc(ParentBloc):
+class ReturnBloc(ParentBloc):
 	"""Retourne la valeur de la variable donnée."""
 	
 	def __init__(self):
-		super(VariableReturnBloc, self).__init__(COLOR, 1)
+		super(ReturnBloc, self).__init__(COLOR, ["value"])
 	
 	def __repr__(self):
 		return f"VariableReturn({self.slots[0]})"

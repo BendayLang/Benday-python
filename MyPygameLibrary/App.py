@@ -1,5 +1,6 @@
 """Ce programme python contient la classe mère Application."""
-from pygame import Color, RESIZABLE, Surface, Vector2 as Vec2, display, event, init, quit as pygame_quit
+from pygame import Color, RESIZABLE, Surface, Vector2 as Vec2, display, draw, event, init,\
+	quit as pygame_quit
 from pygame.time import Clock
 
 from MyPygameLibrary.Inputs import Key, Inputs
@@ -52,6 +53,7 @@ class App:
 		self.changed: bool = True
 		
 		self.key_down_timer: int = 0
+		self.rot = 0
 	
 	def run(self):
 		"""Boucle principale de l’application."""
@@ -188,3 +190,14 @@ class App:
 			          limit_size - Vec2(2 * 5 / scale - 4), 4)
 			draw_rect(self.window_surface, self.camera, "dark red",
 			          self.camera.left_top_limit, limit_size, 12)
+	
+	def draw_clock(self):
+		n = 12
+		center = Vec2(100, 110)
+		draw.circle(self.window_surface, "light grey", center, 30)
+		[draw.line(self.window_surface, "black", center + Vec2(22, 0).rotate(a * 360 / n),
+		           center + Vec2(28, 0).rotate(a * 360 / n), 2) for a in range(n)]
+		draw.circle(self.window_surface, "black", center, 30, 2)
+		draw.circle(self.window_surface, "red", center, 5)
+		draw.line(self.window_surface, "red", center, center + Vec2(24, 0).rotate(self.rot), 3)
+		self.rot += 360 / n

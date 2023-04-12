@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from pygame import Color, Surface, Vector2 as Vec2
 
 from AST import ASTNodeWhile
-from Constantes import FONT_20, MARGIN, INNER_MARGIN, SMALL_RADIUS
+from Constantes import BT_SIZE, FONT_20, MARGIN, INNER_MARGIN, SMALL_RADIUS
 
 from Blocs.ParentBloc import ParentBloc
-from Containers import Sequence, Slot
+from Blocs.Containers import Sequence, Slot
 
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.UI_elements import change_color, darker, draw_text, hsv_color
@@ -18,8 +18,6 @@ TEXT_WHILE_SIZE: Vec2 = Vec2(FONT_20.size(TEXT_WHILE))
 
 TEXT_DO_WHILE: str = "DO WHILE"
 TEXT_DO_WHILE_SIZE: Vec2 = Vec2(FONT_20.size(TEXT_DO_WHILE))
-
-BT_DO_WHILE_SIZE: Vec2 = Vec2(16)
 
 DO_WHILE_COLOR: Color = change_color(COLOR, s_fonc=lambda _: .1, v_fonc=lambda _: .9)
 
@@ -72,15 +70,15 @@ class WhileBloc(ParentBloc):
 	def button_size(self, button_id: int) -> Vec2:
 		match self.buttons[button_id]:
 			case "is_do":
-				return BT_DO_WHILE_SIZE
+				return BT_SIZE
 	
 	def button_position(self, button_id: int) -> Vec2:
 		match self.buttons[button_id]:
 			case "is_do":
-				position_x = (self.text_width - BT_DO_WHILE_SIZE.x) / 2 + MARGIN
+				position_x = (self.text_width - BT_SIZE.x) / 2 + MARGIN
 				position_y = self.slots[0].size.y / 2 + TEXT_DO_WHILE_SIZE.y / 2 + MARGIN
 				if self.is_do:
-					position_y = self.size.y - BT_DO_WHILE_SIZE.y - position_y
+					position_y = self.size.y - BT_SIZE.y - position_y
 				return Vec2(position_x, position_y)
 	
 	def draw_button(self, surface: Surface, camera: Camera, origin: Vec2, hovered: bool, button_id: int):
@@ -93,10 +91,9 @@ class WhileBloc(ParentBloc):
 				draw_rect(surface, camera, color, origin + position, size, border_radius=SMALL_RADIUS)
 				
 				color = darker(DO_WHILE_COLOR, .7 * .6) if hovered else darker(DO_WHILE_COLOR, .6)
-				vertices = [Vec2(4, 4), Vec2(BT_DO_WHILE_SIZE.x - 4, 4),
-				            Vec2(BT_DO_WHILE_SIZE.x / 2, BT_DO_WHILE_SIZE.y - 4)]
+				vertices = [Vec2(4, 4), Vec2(BT_SIZE.x - 4, 4), Vec2(BT_SIZE.x / 2, BT_SIZE.y - 4)]
 				if self.is_do:
-					vertices = [BT_DO_WHILE_SIZE - vertex for vertex in vertices]
+					vertices = [BT_SIZE - vertex for vertex in vertices]
 				draw_poly(surface, camera, color, [vertex + position + origin for vertex in vertices])
 	
 	def button_function(self, button_id: int) -> bool:

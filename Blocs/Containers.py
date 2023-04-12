@@ -4,15 +4,13 @@ from typing import Any
 from pygame import Color, Rect, Surface, Vector2 as Vec2
 
 from AST import ASTNodeSequence, ASTNodeValue
-from Constantes import RADIUS, SMALL_RADIUS
+from Constantes import RADIUS, SLOT_SIZE, SLOT_TEXT_SIZE, SMALL_RADIUS
 
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.UI_elements import TextBox, change_color, darker
 from MyPygameLibrary.World import draw_rect
 
-SLOT_SIZE: Vec2 = Vec2(80, 25)
 SEQUENCE_SIZE: Vec2 = Vec2(120, 80)
-
 SEQUENCE_MARGIN: int = 7
 
 
@@ -37,8 +35,8 @@ class Slot:
 		self.text_box = TextBox(
 		  None, SLOT_SIZE,
 		  change_color(color, s_fonc=lambda s: s * .3, v_fonc=lambda _: 1),
-		  darker(color, .8), default_text=default_text,
-		  fixed_size=False, text_size=16, corner_radius=SMALL_RADIUS, border=0)
+		  darker(color, .8), default_text=default_text, fixed_size=False,
+		  text_size=SLOT_TEXT_SIZE, corner_radius=SMALL_RADIUS, border=0)
 		self.bloc = None
 	
 	def __repr__(self):

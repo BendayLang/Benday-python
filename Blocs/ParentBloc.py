@@ -4,7 +4,7 @@ from pygame import Color, Surface, Vector2 as Vec2
 
 from AST import ASTNode
 from Constantes import MARGIN, RADIUS, SMALL_RADIUS
-from Containers import HoveredOn, Slot, Sequence
+from Blocs.Containers import HoveredOn, Slot, Sequence
 
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.UI_elements import change_color, darker, hsv_color
@@ -37,10 +37,15 @@ class ParentBloc:
 	hovered_on: tuple[HoveredOn, int | None]
 	buttons: list[str]
 	
-	def __init__(self, color: Color, slots: list[Slot] | int = 0,
+	def __init__(self, color: Color, slots: list[Slot] | list[str] | int = 0,
 	             sequences: list[Sequence] | int = 0, buttons: list[str] = None):
 		self.color = color
-		self.slots = [Slot(color) for _ in range(slots)] if type(slots) is int else slots
+		if type(slots) is int:
+			self.slots = [Slot(color) for _ in range(slots)]
+		elif type(slots[0]) is str:
+			self.slots = [Slot(color, default_text) for default_text in slots]
+		else:
+			self.slots = slots
 		self.sequences = [Sequence(color)
 		                  for _ in range(sequences)] if type(sequences) is int else sequences
 		self.size = self.get_size()
@@ -337,7 +342,7 @@ class ParentBloc:
 		                          f"'{self.__class__.__name__}' class")
 	
 	def button_function(self, button_id: int) -> bool:
-		"""Exécute une fonction selon le bouton donné."""
+		"""Exécute une fonction selon le bouton donné et renvois si la taille du bloc change."""
 		raise NotImplementedError(f"'button_function' is not implemented in "
 		                          f"'{self.__class__.__name__}' class")
 	

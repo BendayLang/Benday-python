@@ -6,10 +6,30 @@ use executor::execute_ast;
 use math_parser::parse_math_expression;
 use tokenizer::tokenize_expression;
 
-pub fn is_math_parsable(expression: &str) -> bool {
+use self::math_parser::Operation;
+
+#[derive(PartialEq)]
+pub enum MathParsability {
+    IntParsable,
+    FloatParsable,
+    Unparsable,
+}
+
+pub fn get_math_parsibility(expression: &str) -> MathParsability {
     match tokenize_expression(&expression) {
-        Ok(_) => true,
-        Err(_) => false,
+        Ok(tokens) => {
+            // TODO map / find
+            for token in tokens {
+                match token {
+                    tokenizer::Token::Float(_) | tokenizer::Token::Operation(Operation::Division) => {
+                        return MathParsability::FloatParsable;
+                    }
+                    _ => {}
+                }
+            }
+            MathParsability::IntParsable
+        }
+        Err(_) => MathParsability::Unparsable,
     }
 }
 

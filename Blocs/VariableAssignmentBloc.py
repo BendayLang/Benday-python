@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pygame import Color, Surface, Vector2 as Vec2
 
 from AST import ASTNodeVariableAssignment
-from Constantes import FONT_20, INNER_MARGIN, MARGIN, SLOT_SIZE, SLOT_TEXT_SIZE, SMALL_RADIUS
+from Constantes import FONT_20, INNER_MARGIN, MARGIN, SLOT_SIZE, SLOT_TEXT_SIZE, SMALL_RADIUS, TYPES
 from Blocs.ParentBloc import ParentBloc
 from MyPygameLibrary.Camera import Camera
 from MyPygameLibrary.UI_elements import TextBox, change_color, darker, draw_text, hsv_color
@@ -13,8 +13,7 @@ COLOR: Color = hsv_color(30, 60, 100)
 TEXT_EQUAL: str = "="
 TEXT_EQUAL_SIZE: Vec2 = Vec2(FONT_20.size(TEXT_EQUAL))
 
-TEXT_TYPES: list[str] = ["Int", "Float", "Bool", "String"]
-TEXT_TYPES_SIZES: list[Vec2] = [Vec2(FONT_20.size(text)) for text in TEXT_TYPES]
+TEXT_TYPES_SIZES: list[Vec2] = [Vec2(FONT_20.size(text)) for text in TYPES]
 TEXT_HEIGHT: int = FONT_20.get_height()
 
 BT_TYPE_SIZE: Vec2 = Vec2(20, 16)
@@ -38,11 +37,11 @@ class VariableAssignmentBloc(ParentBloc):
 		self.type = None
 		super(VariableAssignmentBloc, self).__init__(
 		  COLOR, ["value"], 0,
-		  ["name_box", "type"])
+		  ["name_box", "choose_type"])
 	
 	def __repr__(self):
 		name_text = self.name_box.text if self.name_box.text else "-"
-		return f"VariableAssignment({name_text} = {self.slots[0]})"
+		return f"VariableAssignment({name_text}: {self.type} = {self.slots[0]})"
 	
 	def get_size(self) -> Vec2:
 		width = max([slot.size.x for slot in self.slots]) +\
@@ -55,15 +54,6 @@ class VariableAssignmentBloc(ParentBloc):
 		position_y = sum([slot.size.y for slot in self.slots[:slot_id]]) + slot_id * INNER_MARGIN
 		return Vec2(position_x, position_y) + Vec2(MARGIN)
 	
-	def collide(self, point: Vec2) -> bool:
-		if point.y <= self.size.y or TEXT_TYPES[0] not in self.buttons:
-			return super(VariableAssignmentBloc, self).collide(point)
-		
-		for button_id in range(2, len(self.buttons)):
-			if self.collide_button(point, button_id):
-				return True
-		return False
-	
 	def post_draw(self, surface: Surface, camera: Camera, origin: Vec2):
 		position = Vec2(self.name_box.size.x + self.text_width + 2 * INNER_MARGIN,
 		                self.slots[0].size.y / 2) + Vec2(MARGIN)
@@ -74,23 +64,16 @@ class VariableAssignmentBloc(ParentBloc):
 		match self.buttons[button_id]:
 			case "name_box":
 				return self.name_box.size
-			case "type":
+			case "choose_type":
 				return Vec2(self.text_width, BT_TYPE_SIZE.y)
-			case _:  # types
-				return Vec2(max([text_type_size.x for text_type_size in TEXT_TYPES_SIZES]), TEXT_HEIGHT)
 	
 	def button_position(self, button_id: int) -> Vec2:
 		match self.buttons[button_id]:
 			case "name_box":
 				return Vec2(MARGIN, (self.size.y - self.name_box.size.y) / 2)
-			case "type":
+			case "choose_type":
 				return Vec2(MARGIN + self.name_box.size.x + INNER_MARGIN,
 				            (self.size.y - BT_TYPE_SIZE.y) / 2)
-			case _:  # types
-				button_type_id = self.buttons.index("type")
-				size = self.button_size(button_type_id)
-				return self.button_position(button_type_id) + \
-				       Vec2((size.x - self.button_size(button_id).x) / 2, size.y + (button_id - 2) * TEXT_HEIGHT)
 	
 	def draw_button(self, surface: Surface, camera: Camera, origin: Vec2, hovered: bool, button_id: int):
 		position = self.button_position(button_id)
@@ -101,10 +84,10 @@ class VariableAssignmentBloc(ParentBloc):
 				self.name_box.draw(surface, camera, origin + position)
 				if hovered:
 					draw_rect(surface, camera, "black", origin + position, size, 1, 2)
-			case "type":
+			case "choose_type":
 				color = darker(TYPE_COLOR, .7) if hovered else TYPE_COLOR
 				draw_rect(surface, camera, color, origin + position, size, border_radius=SMALL_RADIUS)
-				if TEXT_TYPES[0] in self.buttons:
+				if False:
 					draw_rect(surface, camera, "black", origin + position,
 					          size, 1 / camera.scale, SMALL_RADIUS)
 				if self.type is None:
@@ -113,54 +96,27 @@ class VariableAssignmentBloc(ParentBloc):
 						          origin + position + size / 2 + Vec2(i * 4, 0) - Vec2(1), Vec2(2))
 				else:
 					draw_text(surface, self.type, origin + position + size / 2, 16, camera=camera)
-				
-			case _:  # types
-				color = darker("white", .7) if hovered else "white"
-				draw_rect(surface, camera, color, origin + position, size)
-				draw_rect(surface, camera, "black", origin + position, size, 1 / camera.scale)
-				
-				draw_text(surface, TEXT_TYPES[button_id - 2], origin + position +
-				          size / 2, 16, camera=camera)
-				"""
-				for i, text_type in enumerate(TEXT_TYPES):
-					draw_text(surface, text_type, origin + position +
-					          Vec2(size.x / 2, (i + .5) * TEXT_HEIGHT), 16, camera=camera)
-					if not i: continue
-					draw_line(surface, camera, "black",
-					          origin + position + Vec2(0, i * TEXT_HEIGHT),
-					          origin + position + Vec2(size.x - 2 / camera.scale, i * TEXT_HEIGHT),
-					          1 / camera.scale)
-				"""
 	
 	def button_function(self, button_id: int):
 		match self.buttons[button_id]:
 			case "name_box":
 				self.name_box.select()
 				return False
-			case "type":
-				if TEXT_TYPES[0] in self.buttons:
-					[self.buttons.remove(text_type) for text_type in TEXT_TYPES]
-				else:
-					self.buttons.extend(TEXT_TYPES)
+			case "choose_type":
+				
 				return False
-			case _:  # types
-				self.type = TEXT_TYPES[button_id - 2]
-				[self.buttons.remove(text_type) for text_type in TEXT_TYPES]
-				return True
 	
 	def always_draw_button(self, button_id: int) -> bool:
 		match self.buttons[button_id]:
 			case "name_box":
 				return True
-			case "type":
-				return True
-			case _:  # types
+			case "choose_type":
 				return True
 	
 	@property
 	def text_width(self) -> int:
 		return int(BT_TYPE_SIZE.x if self.type is None
-		           else TEXT_TYPES_SIZES[TEXT_TYPES.index(self.type)].x)
+		           else TEXT_TYPES_SIZES[TYPES.index(self.type)].x)
 	
 	def as_ASTNode(self) -> ASTNodeVariableAssignment:
 		name_text = self.name_box.text if self.name_box.text else "-"

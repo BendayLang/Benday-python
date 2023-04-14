@@ -693,6 +693,9 @@ class MultiBox:
 
 SLIDER_WIDTH: int = 12
 
+LONG_CLICK_TIME: int = 300
+LONG_CLICK_SPEED: int = 0.01
+
 
 @dataclass(slots=True)
 class RollingList(UiObject):
@@ -719,6 +722,7 @@ class RollingList(UiObject):
 	slider_hovered: bool = False
 	clicked_outside: bool = False
 	confirm_selection: bool = False
+	key_down_timer: int = 0
 	changed: bool = False
 	
 	def __post_init__(self):
@@ -742,33 +746,7 @@ class RollingList(UiObject):
 		self.confirm_selection = False
 		if not self.words: return
 		
-		if self.selected_word is None:
-			if inputs.K_DOWN == Key.PRESSED:
-				self.selected_word = 0
-				self.changed = True
-			elif inputs.K_UP == Key.PRESSED:
-				self.selected_word = len(self.words) - 1
-				self.slider_position = self.course
-				self.changed = True
-		else:
-			if inputs.K_DOWN == Key.PRESSED:
-				self.selected_word += 1
-				if self.selected_word > len(self.words) - 1:
-					self.selected_word = 0
-					self.slider_position = 0
-				elif self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
-					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
-					self.slider_position = clip(self.slider_position, 0, self.course)
-				self.changed = True
-			elif inputs.K_UP == Key.PRESSED:
-				self.selected_word -= 1
-				if self.selected_word < 0:
-					self.selected_word = len(self.words) - 1
-					self.slider_position = self.course
-				elif self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
-					self.slider_position = (self.selected_word + 3.8) * self.line_height - self.size.y
-					self.slider_position = clip(self.slider_position, 0, self.course)
-				self.changed = True
+		self.key_change_word(delta, inputs)
 		
 		position = inputs.mouse.position - self.position
 		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
@@ -859,6 +837,72 @@ class RollingList(UiObject):
 		
 		surface.blit(box_surface, self.position)
 	
+	def key_change_word(self, delta: int, inputs: Inputs):
+		self.key_down_timer += delta
+		delta_time = self.key_down_timer - LONG_CLICK_TIME
+		
+		if self.selected_word is None:
+			if inputs.K_DOWN == Key.PRESSED:
+				self.selected_word = 0
+				self.slider_position = 0
+				self.key_down_timer = 0
+				self.changed = True
+			elif inputs.K_UP == Key.PRESSED:
+				self.selected_word = len(self.words) - 1
+				self.slider_position = self.course
+				self.key_down_timer = 0
+				self.changed = True
+			return
+		
+		if inputs.K_DOWN == Key.PRESSED:
+			self.selected_word += 1
+			self.key_down_timer = 0
+			if self.selected_word > len(self.words) - 1:
+				self.selected_word = 0
+				self.slider_position = 0
+			elif self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
+				self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+		
+		elif inputs.K_UP == Key.PRESSED:
+			self.selected_word -= 1
+			self.key_down_timer = 0
+			if self.selected_word < 0:
+				self.selected_word = len(self.words) - 1
+				self.slider_position = self.course
+			elif self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
+				self.slider_position = (self.selected_word + 3.8) * self.line_height - self.size.y
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+		
+		elif inputs.K_DOWN == Key.DOWN and self.key_down_timer > LONG_CLICK_TIME:
+			if delta_time * LONG_CLICK_SPEED >= 1:
+				self.selected_word += int(delta_time * LONG_CLICK_SPEED)
+				self.key_down_timer = LONG_CLICK_TIME
+				if self.selected_word > len(self.words) - 1:
+					self.selected_word = len(self.words) - 1
+					self.slider_position = self.course
+					self.key_down_timer = 0
+				elif self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
+					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
+					self.slider_position = clip(self.slider_position, 0, self.course)
+				self.changed = True
+		
+		elif inputs.K_UP == Key.DOWN and self.key_down_timer > LONG_CLICK_TIME:
+			if delta_time * LONG_CLICK_SPEED >= 1:
+				self.selected_word -= int(delta_time * LONG_CLICK_SPEED)
+				self.key_down_timer = LONG_CLICK_TIME
+			
+			if self.selected_word < 0:
+				self.selected_word = 0
+				self.slider_position = 0
+				self.key_down_timer = 0
+			elif self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
+				self.slider_position = (self.selected_word + 3.8) * self.line_height - self.size.y
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+	
 	def collide_word(self, point: Vec2) -> int | None:
 		"""Renvoie l’index du mot avec lequel collisionne le point."""
 		position = point - self.position
@@ -884,7 +928,7 @@ class RollingList(UiObject):
 	
 	@property
 	def course(self) -> int:
-		return self.text_surface.get_height() - self.size.y
+		return max(self.text_surface.get_height() - self.size.y, 0)
 	
 	@property
 	def slider_height(self) -> int:

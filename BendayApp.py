@@ -39,10 +39,10 @@ class BendayApp(App):
 	Logiciel de programmation visuel et dynamique."""
 	
 	def __init__(self):
-		super().__init__("Dynamic UI", "grey 40", fps=120, quit_on_escape=False)
+		super().__init__("Benday", "grey 40", fps=120, quit_on_escape=False)
 		
 		self.ui_objects["bt_reset"].text = "CLEAR"
-		self.ui_objects["bt_play"] = Button("tomato", Vec2(300, 25), Vec2(100, 40), text="PLAY")
+		self.ui_objects["bt_play"] = Button("tomato", Vec2(300, 25), Vec2(80, 40), text="|>")
 		
 		self.camera = Camera(self.window_size, zoom_speed=2 ** (1 / 8), vertical_scroll=True,
 		                     min_scale=1 / 2, max_scale=2,
@@ -99,7 +99,11 @@ class BendayApp(App):
 		# Text box
 		if self.text_box is not None:
 			self.text_box.update(delta, self.inputs)
-			if self.text_box.changed:
+			
+			if self.text_box.clicked_outside and self.rolling_list is None:
+				self.unselect_text_box()
+				return
+			elif self.text_box.changed:
 				self.changed = True
 			if self.text_box.size_changed and self.text_box_bloc is not None:
 				self.blocs[self.text_box_bloc][1].update_size()
@@ -116,9 +120,10 @@ class BendayApp(App):
 		self.rolling_list.update(delta, self.inputs)
 		
 		if self.rolling_list.clicked_outside:
-			if not (self.text_box is not None and not self.text_box.clicked_outside):
+			if self.text_box and self.text_box.clicked_outside:
 				self.unselect_text_box()
-				return
+			return
+		
 		elif self.rolling_list.confirm_selection:
 			if self.text_box:
 				self.text_box.text = self.rolling_list.selected_text
@@ -222,7 +227,6 @@ class BendayApp(App):
 	
 	def mouse_left_click(self):
 		"""Gère le clic gauche de la souris."""
-		self.unselect_text_box()
 		if self.mouse_hovered in [None, (0, [], (HoveredOn.SEQUENCE, 0))]:
 			return
 		

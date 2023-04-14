@@ -184,10 +184,6 @@ class App:
 		
 		if draw_border:
 			limit_size = self.camera.right_bottom_limit - self.camera.left_top_limit
-			border_color = darker(grid_color, 0.7)
-			draw_rect(self.window_surface, self.camera, border_color,
-			          self.camera.left_top_limit + Vec2(5 / scale - 4 / 2),
-			          limit_size - Vec2(2 * 5 / scale - 4), 4)
 			draw_rect(self.window_surface, self.camera, "dark red",
 			          self.camera.left_top_limit, limit_size, 12)
 	

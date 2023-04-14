@@ -87,9 +87,7 @@ class VariableAssignmentBloc(ParentBloc):
 			case "choose_type":
 				color = darker(TYPE_COLOR, .7) if hovered else TYPE_COLOR
 				draw_rect(surface, camera, color, origin + position, size, border_radius=SMALL_RADIUS)
-				if False:
-					draw_rect(surface, camera, "black", origin + position,
-					          size, 1 / camera.scale, SMALL_RADIUS)
+				
 				if self.type is None:
 					for i in range(-1, 2):
 						draw_rect(surface, camera, "black",
@@ -103,7 +101,6 @@ class VariableAssignmentBloc(ParentBloc):
 				self.name_box.select()
 				return False
 			case "choose_type":
-				
 				return False
 	
 	def always_draw_button(self, button_id: int) -> bool:

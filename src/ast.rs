@@ -69,10 +69,11 @@ pub fn exec_ast(ast: &ASTNode, variables: &mut HashMap<String, ReturnValue>) -> 
             } else {
                 value.to_string()
             };
-            if math::is_math_parsable(&value) {
-                return math::math_expression(&value).unwrap();
-            }
-            return ReturnValue::String_(value);
+            return match math::get_math_parsibility(&value) {
+                math::MathParsability::Unparsable => ReturnValue::String_(value),
+                math::MathParsability::FloatParsable => math::math_expression(&value).unwrap(),
+                math::MathParsability::IntParsable => math::math_expression(&value).unwrap(),
+            };
         }
         ASTNode::VariableAssignment(name, new_value) => {
             let value = exec_ast(new_value, variables);

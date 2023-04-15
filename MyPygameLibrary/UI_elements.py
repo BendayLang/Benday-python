@@ -366,6 +366,7 @@ class TextBox(UiObject):
 		self.visible: bool = visible
 		
 		self.text_changed: bool = False
+		self.clicked_outside: bool = False
 		
 		self.hovered = False
 		self.text_surface: Surface = None
@@ -380,16 +381,19 @@ class TextBox(UiObject):
 	
 	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		"""Met à jour la boîte de texte."""
-		if not self.visible: return
-		
 		self.changed = False
+		self.clicked_outside = False
 		self.text_changed = False
 		self.size_changed = False
+		
+		if not self.visible: return
 		
 		if inputs.mouse.K_LEFT == Key.PRESSED:
 			if self.hit_box.collidepoint(inputs.mouse.position):
 				self.selected = True
 				self.changed = True
+			else:
+				self.clicked_outside = True
 		
 		if not self.selected: return
 		
@@ -689,6 +693,9 @@ class MultiBox:
 
 SLIDER_WIDTH: int = 12
 
+LONG_CLICK_TIME: int = 300
+LONG_CLICK_SPEED: int = 0.01
+
 
 @dataclass(slots=True)
 class RollingList(UiObject):
@@ -706,12 +713,16 @@ class RollingList(UiObject):
 	corner_radius: int = 0
 	slider_position: int = 0
 	slider_selected: bool = False
-	text_selected: bool = False
 	slider_color: Color = None
 	text_surface: Surface = None
 	line_height: int = None
 	words: list[str] = None
 	size: Vec2 = None
+	hovered_word: int | None = None
+	slider_hovered: bool = False
+	clicked_outside: bool = False
+	confirm_selection: bool = False
+	key_down_timer: int = 0
 	changed: bool = False
 	
 	def __post_init__(self):
@@ -731,66 +742,56 @@ class RollingList(UiObject):
 	
 	def update(self, delta: int, inputs: Inputs, camera: Camera | None = None):
 		self.changed = False
+		self.clicked_outside = False
+		self.confirm_selection = False
 		if not self.words: return
 		
-		if self.selected_word is None:
-			if inputs.K_DOWN == Key.PRESSED:
-				self.selected_word = 0
-				self.changed = True
-			elif inputs.K_UP == Key.PRESSED:
-				self.selected_word = len(self.words) - 1
-				self.slider_position = self.course
-				self.changed = True
-		else:
-			if inputs.K_DOWN == Key.PRESSED:
-				self.selected_word += 1
-				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
-				if self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
-					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
-					self.slider_position = clip(self.slider_position, 0, self.course)
-				self.changed = True
-			elif inputs.K_UP == Key.PRESSED:
-				self.selected_word -= 1
-				self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
-				if self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
-					self.slider_position = (self.selected_word + 3) * self.line_height - self.size.y
-					self.slider_position = clip(self.slider_position, 0, self.course)
-				self.changed = True
+		self.key_change_word(delta, inputs)
 		
 		position = inputs.mouse.position - self.position
 		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
-		if not ((0 < position.x < size.x and 0 < position.y < size.y) or
-		        self.slider_selected or self.text_selected):
-			if inputs.mouse.K_LEFT == Key.PRESSED and self.selected_word is not None:
-				self.selected_word = None
+		
+		new_hovered_word = self.collide_word(inputs.mouse.position)
+		if new_hovered_word != self.hovered_word:
+			self.hovered_word = new_hovered_word
+			self.changed = True
+		
+		new_slider_hovered = 0 < size.x - position.x < SLIDER_WIDTH + MARGIN and 0 < position.y < size.y
+		if new_slider_hovered != self.slider_hovered:
+			self.slider_hovered = new_slider_hovered
+			self.changed = True
+		
+		if self.slider_selected:
+			delta_y = inputs.mouse.delta.y
+			if delta_y:
+				self.slider_position += delta_y
+				self.slider_position = clip(self.slider_position, 0, self.course)
 				self.changed = True
+			if inputs.mouse.K_LEFT == Key.RELEASED:
+				self.slider_selected = False
+				self.changed = True
+		
+		if not (0 < position.x < size.x and 0 < position.y < size.y):
+			if inputs.mouse.K_LEFT == Key.PRESSED:
+				self.clicked_outside = True
+				if self.selected_word is not None:
+					self.selected_word = None
+					self.changed = True
 			return
 		
 		if inputs.mouse.K_LEFT == Key.PRESSED:
-			if position.x < self.size.x - SLIDER_WIDTH - MARGIN:
-				self.selected_word = int((position.y + self.slider_position) / self.line_height)
-				self.text_selected = True
+			if self.hovered_word is not None:
+				if self.hovered_word == self.selected_word:
+					self.confirm_selection = True
+				self.selected_word = self.hovered_word
+				self.changed = True
 			else:
 				self.slider_position = (position.y - self.slider_height / 2)\
 				                       / (size.y - self.slider_height) * self.course
 				self.slider_position = clip(self.slider_position, 0, self.course)
 				self.slider_selected = True
 			self.changed = True
-		elif inputs.mouse.K_LEFT == Key.RELEASED and (self.slider_selected or self.text_selected):
-			self.slider_selected = False
-			self.text_selected = False
-			self.changed = True
 		
-		if self.slider_selected:
-			self.slider_position = (position.y - self.slider_height / 2)\
-			                       / (size.y - self.slider_height) * self.course
-			self.slider_position = clip(self.slider_position, 0, self.course)
-			self.changed = True
-		
-		if self.text_selected:
-			self.selected_word = int((position.y + self.slider_position) / self.line_height)
-			self.selected_word = clip(self.selected_word, 0, len(self.words) - 1)
-			self.changed = True
 		
 		if inputs.mouse.scroll:
 			if self.text_surface.get_height() > self.size.y:
@@ -804,29 +805,112 @@ class RollingList(UiObject):
 		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
 		box_surface = Surface(size, SRCALPHA)
 		draw.rect(box_surface, self.color, ((0, 0), size), 0, self.corner_radius)
-		draw.rect(box_surface, self.border_color, ((0, 0), size), self.border, self.corner_radius)
-		
-		box_surface.blit(self.text_surface, (MARGIN, -self.slider_position))
 		
 		width = size.x - 2 * MARGIN - SLIDER_WIDTH
+		if self.hovered_word is not None:
+			draw.rect(box_surface, darker(self.color, .9),
+			          ((1, self.hovered_word * self.line_height - self.slider_position),
+			           (width, self.line_height)))
+		
+		if self.selected_word is not None:
+			color = darker(self.color, .7 * .9) if self.hovered_word == self.selected_word\
+				else darker(self.color, .7)
+			draw.rect(box_surface, color,
+			          ((1, self.selected_word * self.line_height - self.slider_position),
+			           (width, self.line_height)))
+		
+		draw.rect(box_surface, self.border_color, ((0, 0), size), self.border, self.corner_radius)
+		
 		for i, text in enumerate(self.words):
 			height = i * self.line_height - self.slider_position
 			draw.line(box_surface, self.text_color, (0, height), (width, height))
 		
-		if self.selected_word is not None:
-			selected_surface = Surface((width, self.line_height))
-			selected_surface.set_alpha(100)
-			box_surface.blit(selected_surface,
-			                 (1, self.selected_word * self.line_height - self.slider_position))
+		box_surface.blit(self.text_surface, (MARGIN, -self.slider_position))
 		
-		if self.text_surface.get_height() > self.size.y:
-			color = darker(self.slider_color, .7) if self.slider_selected else self.slider_color
-			draw.rect(box_surface, color, (Vec2(width, self.slider_position) + Vec2(MARGIN),
-			                               (SLIDER_WIDTH, self.slider_height)), 0, self.corner_radius)
-			draw.rect(box_surface, "black", (Vec2(width, self.slider_position) + Vec2(MARGIN),
-			                                 (SLIDER_WIDTH, self.slider_height)), 1, self.corner_radius)
+		# Slider
+		color = darker(self.slider_color, .9) if self.slider_hovered else self.slider_color
+		if self.slider_selected: color = darker(color, .7)
+		draw.rect(box_surface, color, (Vec2(width, self.slider_position) + Vec2(MARGIN),
+		                               (SLIDER_WIDTH, self.slider_height)), 0, self.corner_radius)
+		draw.rect(box_surface, "black", (Vec2(width, self.slider_position) + Vec2(MARGIN),
+		                                 (SLIDER_WIDTH, self.slider_height)), 1, self.corner_radius)
 		
 		surface.blit(box_surface, self.position)
+	
+	def key_change_word(self, delta: int, inputs: Inputs):
+		self.key_down_timer += delta
+		delta_time = self.key_down_timer - LONG_CLICK_TIME
+		
+		if self.selected_word is None:
+			if inputs.K_DOWN == Key.PRESSED:
+				self.selected_word = 0
+				self.slider_position = 0
+				self.key_down_timer = 0
+				self.changed = True
+			elif inputs.K_UP == Key.PRESSED:
+				self.selected_word = len(self.words) - 1
+				self.slider_position = self.course
+				self.key_down_timer = 0
+				self.changed = True
+			return
+		
+		if inputs.K_DOWN == Key.PRESSED:
+			self.selected_word += 1
+			self.key_down_timer = 0
+			if self.selected_word > len(self.words) - 1:
+				self.selected_word = 0
+				self.slider_position = 0
+			elif self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
+				self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+		
+		elif inputs.K_UP == Key.PRESSED:
+			self.selected_word -= 1
+			self.key_down_timer = 0
+			if self.selected_word < 0:
+				self.selected_word = len(self.words) - 1
+				self.slider_position = self.course
+			elif self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
+				self.slider_position = (self.selected_word + 3.8) * self.line_height - self.size.y
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+		
+		elif inputs.K_DOWN == Key.DOWN and self.key_down_timer > LONG_CLICK_TIME:
+			if delta_time * LONG_CLICK_SPEED >= 1:
+				self.selected_word += int(delta_time * LONG_CLICK_SPEED)
+				self.key_down_timer = LONG_CLICK_TIME
+				if self.selected_word > len(self.words) - 1:
+					self.selected_word = len(self.words) - 1
+					self.slider_position = self.course
+					self.key_down_timer = 0
+				elif self.selected_word + 2.4 > (self.size.y + self.slider_position) / self.line_height:
+					self.slider_position = (self.selected_word + 2.4) * self.line_height - self.size.y
+					self.slider_position = clip(self.slider_position, 0, self.course)
+				self.changed = True
+		
+		elif inputs.K_UP == Key.DOWN and self.key_down_timer > LONG_CLICK_TIME:
+			if delta_time * LONG_CLICK_SPEED >= 1:
+				self.selected_word -= int(delta_time * LONG_CLICK_SPEED)
+				self.key_down_timer = LONG_CLICK_TIME
+			
+			if self.selected_word < 0:
+				self.selected_word = 0
+				self.slider_position = 0
+				self.key_down_timer = 0
+			elif self.selected_word - 2 < (self.size.y + self.slider_position) / self.line_height:
+				self.slider_position = (self.selected_word + 3.8) * self.line_height - self.size.y
+				self.slider_position = clip(self.slider_position, 0, self.course)
+			self.changed = True
+	
+	def collide_word(self, point: Vec2) -> int | None:
+		"""Renvoie l’index du mot avec lequel collisionne le point."""
+		position = point - self.position
+		size = Vec2(self.size.x, min(self.text_surface.get_height(), self.size.y))
+		
+		if not (0 < position.x < size.x - SLIDER_WIDTH - MARGIN and 0 < position.y < size.y):
+			return None
+		return int((position.y + self.slider_position) / self.line_height)
 	
 	def update_words(self, search_word: str):
 		self.words = fuzzy_find(self.base_words, search_word)
@@ -844,10 +928,12 @@ class RollingList(UiObject):
 	
 	@property
 	def course(self) -> int:
-		return self.text_surface.get_height() - self.size.y
+		return max(self.text_surface.get_height() - self.size.y, 0)
 	
 	@property
 	def slider_height(self) -> int:
+		if self.text_surface.get_height() <= self.size.y:
+			return self.text_surface.get_height() - 2 * MARGIN
 		return self.size.y - self.course - 2 * MARGIN
 	
 	@property

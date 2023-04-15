@@ -9,6 +9,8 @@ FONT_20: font.Font = font.SysFont("tw cen", 20)
 # Global
 MOTHER_SIZE: Vec2 = 100 * Vec2(4, 6)
 
+TYPES: list[str] = ["Int", "Float", "Bool", "String"]
+
 
 # Blocs
 RADIUS: int = 7

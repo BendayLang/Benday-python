@@ -41,7 +41,6 @@ fn math_expression(expression: &str) -> PyResult<f64> {
 // #[pyfunction]
 // fn expand_variables(_expression: String, _variables: HashMap<String, &PyAny>) -> PyResult<String> {
 //     //Ok(variables_expansion::expand_variables(expression, variables))
-//     Ok(String::from("todo"))
 // }
 
 /// A Python module implemented in Rust.

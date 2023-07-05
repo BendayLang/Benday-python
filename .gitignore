@@ -5,3 +5,5 @@ MondeVide.py
 target
 *.lock
 venv
+__pycache__
+.idea

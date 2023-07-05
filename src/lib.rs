@@ -1,26 +1,26 @@
+#![allow(dead_code)]
+
 mod ast;
 mod fuzzy_finder;
 mod math;
 mod variables_expansion;
 
-use ast::ReturnValue;
+use ast_node::ReturnValue;
 use math::MathParsability;
 use pyo3::prelude::*;
 use pyo3::types::PyFloat;
-use std::collections::HashMap;
 
 #[pyfunction]
 fn fuzzy_find(possibilities: Vec<String>, query: String) -> PyResult<Vec<String>> {
     Ok(fuzzy_finder::fuzzy_find(possibilities, query))
 }
 
-
 #[pyfunction]
 fn get_math_parsibility(expression: &str) -> PyResult<String> {
     match math::get_math_parsibility(expression) {
         MathParsability::IntParsable => Ok("int".to_string()),
         MathParsability::FloatParsable => Ok("float".to_string()),
-        MathParsability::Unparsable => Ok("none".to_string())
+        MathParsability::Unparsable => Ok("none".to_string()),
     }
 }
 

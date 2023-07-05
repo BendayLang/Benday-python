@@ -1,6 +1,6 @@
-use crate::ast::ReturnValue;
 use crate::math::math_parser::MathNode;
 use crate::math::math_parser::Operation;
+use ast_node::ReturnValue;
 /*
 pub enum MathNode {
     Operation(Box<MathNode>, Operation, Box<MathNode>),

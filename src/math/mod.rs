@@ -1,7 +1,7 @@
 mod executor;
 mod math_parser;
 mod tokenizer;
-use crate::ast::ReturnValue;
+use ast_node::ReturnValue;
 use executor::execute_ast;
 use math_parser::parse_math_expression;
 use tokenizer::tokenize_expression;
@@ -21,7 +21,8 @@ pub fn get_math_parsibility(expression: &str) -> MathParsability {
             // TODO map / find
             for token in tokens {
                 match token {
-                    tokenizer::Token::Float(_) | tokenizer::Token::Operation(Operation::Division) => {
+                    tokenizer::Token::Float(_)
+                    | tokenizer::Token::Operation(Operation::Division) => {
                         return MathParsability::FloatParsable;
                     }
                     _ => {}

@@ -1,4 +1,4 @@
-use crate::ast::ReturnValue;
+use ast_node::ReturnValue;
 use std::collections::HashMap;
 
 pub fn expand_variables(
